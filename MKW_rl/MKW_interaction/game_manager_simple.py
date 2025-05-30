@@ -338,7 +338,7 @@ class GameManager:
         map_change_requested_time = math.inf
 
         last_known_simulation_state = None
-        pc = 0 # performance counter
+        pc = time.perf_counter_ns() # performance counter
         pc5 = 0
         floats = None
 
@@ -386,14 +386,13 @@ class GameManager:
                 self.latest_map_path_requested = savestate_path # this seems backwards... TODO
                 continue
             pc2 = time.perf_counter_ns()
-            instrumentation__grab_frame += pc2 - pc
+            instrumentation__between_run_steps += pc2 - pc
             if (frames_processed % self.run_steps_per_action != 0):
                 self.sock.send([False, False, computed_action, None])
                 compute_action_asap_floats = True
                 frames_processed += 1
                 continue
             pc3 = time.perf_counter_ns()
-            instrumentation__between_run_steps += pc3 - pc2
             
             self.sock.send([True, True, computed_action, None])
             # The following line brought to you by literal hours of trying to figure things out only to realize I just needed two functions that I could've just copied from the original code
@@ -408,11 +407,13 @@ class GameManager:
                 cv2.waitKey(0)""" # Image is collected properly, next step is to save to file for display.
             resized_frame = np.expand_dims(cv2.cvtColor(resized_frame, cv2.COLOR_BGRA2GRAY), 0) # took me like 80 minutes to get to the solution that was already present in the original code
             # frame is a numpy array of shape (1, H, W) and dtype np.uint8
-
-            rollout_results["frames"].append(resized_frame)
             pc5 = time.perf_counter_ns()
             instrumentation__convert_frame += pc5 - pc4
             game_data = self.sock.recv()
+            if game_data["race_data"]["state"] == 0:
+                # Race has not started, so skip frames until we enter countdown
+                continue
+            rollout_results["frames"].append(resized_frame)
             # print("Game manager rollout() :: race time is", game_data["race_data"]["race_time"])
             if game_data["boost_data"]["shroom_boost"] > 86:
                 manual_item_count -= 1
@@ -486,6 +487,7 @@ class GameManager:
                 # print("Items left:", manual_item_count, "While race is:", game_data["race_data"]["race_completion_max"])
                 if manual_item_count <= math.floor(-(game_data["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)):
                     computed_action["TriggerLeft"] = 0 # Disable item button if mushroom usage is bad
+                    action_idx = np.intp(3) # swap action idx to non-item usage one
                     # print("Prevented item:", manual_item_count, "While max is:", math.floor(-(game_data["race_data"]["race_completion_max"] - 4)))
 
             # Save the estimated Q-value of the starting state (start of the track)
