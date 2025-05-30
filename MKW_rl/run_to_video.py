@@ -33,6 +33,7 @@ def write_actions_in_csv_format(action_idxs: List[int], outfile_path: Path):
     Output: write a text file on disk containing the corresponding inputs, readable by TMI to load the replay
     """
     outfile = open(outfile_path, "w")
+    # Stick range keys must match values present in inputs file.
     convert_range = {
         1: 7,
         0.57: 6,
@@ -53,13 +54,13 @@ def write_actions_in_csv_format(action_idxs: List[int], outfile_path: Path):
     for action_idx in action_idxs[:-1]:
         action = config.inputs[action_idx]
         writestr = ""
-        writestr += str(1 if action["A"] else 0) + ","
-        writestr += str(1 if action["B"] else 0) + ","
-        writestr += str(action["TriggerLeft"]) + ","
+        writestr += str(1 if action["A"] else 0) + "," # Acceleration
+        writestr += str(action["TriggerRight"]) + "," # Brake (Drift)
+        writestr += str(action["TriggerLeft"]) + "," # Item
         writestr += str(convert_range[action["StickX"]]) + ","
         writestr += str(convert_range[action["StickY"]]) + ","
-        writestr += str(1 if action["Up"] else 0) + ","
-        writestr += str(action["TriggerRight"])
+        writestr += str(1 if action["Up"] else 0) + "," # Trick
+        writestr += str(-1) # 1 if action["B"] else 0 # True Brake
         outfile.write(
             writestr
             + "\n"
