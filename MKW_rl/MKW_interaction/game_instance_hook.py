@@ -82,7 +82,7 @@ class GameInstanceHook():
                     self.restarting_race_timer = 0
                 # Skipped 1000 frames attempting to let the game load the race, so we continue instead.
                 if self.restarting_race_timer > 1000:
-                    # This behavior is likely unwanted but if it never runs (which I believe to be the case) then it never runs
+                    # This behavior is likely unwanted but if it never runs then it never runs
                     print("ERROR: Restarting due to frame rule, track was not loaded within 1000 frames")
                     self.restarting_race = False
                     self.restarting_race_timer = 0
@@ -158,7 +158,7 @@ class GameInstanceHook():
             
     def frameadvance_handler(self):
         self.frame_counter += 1
-        gui.draw_text((10, 10), self.red, f"Frame: {self.frame_counter}")
+        # gui.draw_text((10, 10), self.red, f"Frame: {self.frame_counter}")
 
         if self.load_state_desired:
             self.load_state_desired = False
@@ -170,11 +170,9 @@ class GameInstanceHook():
             # print("Loaded new savestate:", self.desired_savestate)
 
         controller.set_gc_buttons(0, self.desired_inputs)
-        # self.last_desired_inputs = self.desired_inputs
 
     def register(self):
         print("Initialize connection to Dolphin ")
-        # self.iface = TMInterface(self.tmi_port) # reset the interface
 
         success = False
         fails = 0
@@ -202,12 +200,11 @@ when framedrawn_handler is called, we read from the socket, waiting if necessary
 We process
     1. Whether a frame is requested, then sending data
     2. Whether any game data is requested, then sending data
-    3. Whether to receive new inputs
+    3. Whether to apply new inputs
 Next, when frameadvance_handler is called
     1. Draw debug information to screen (inputs, framecount, fps?)
-    2. Apply inputs to the game (if changed)
-    3. Maybe write to a log file?
-
+    2. Load savestate if necessary
+    3. Apply inputs to the game
 """
 
 mymanager.register()
