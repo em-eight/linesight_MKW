@@ -389,14 +389,22 @@ def learner_process_fn(
         # ===============================================
 
         if end_race_stats["race_time"] < accumulated_stats["alltime_min_ms"].get(map_name, 99999999999):
+            temp_rollout_results = rollout_results.copy()
+            for i in range(len(temp_rollout_results["actions"])):
+                # print("WEEUMS", temp_rollout_results["actions"][i])
+                if temp_rollout_results["actions"][i] == np.intp(6):
+                    # print("attempting to use an item:", temp_rollout_results["state_float"][i]["race_data"]["item_count"], ":", math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)))
+                    if temp_rollout_results["state_float"][i]["race_data"]["item_count"] <= math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)):
+                        temp_rollout_results["actions"][i] = np.intp(2) # swap action idx to non-item usage one
+                        # print("Prevented item:", temp_rollout_results["state_float"][i]["race_data"]["item_count"], "While max is:", math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)))
             # This is a new alltime_minimum
             accumulated_stats["alltime_min_ms"][map_name] = end_race_stats["race_time"]
             if accumulated_stats["cumul_number_frames_played"] > config_copy.frames_before_save_best_runs:
-                name = f"{map_name}_{end_race_stats['race_time']}"
+                name = f"{map_name}_{end_race_stats['race_time']:.3f}"
                 utilities.save_run(
                     base_dir,
                     save_dir / "best_runs" / name,
-                    rollout_results,
+                    temp_rollout_results,
                     f"{name}.inputs",
                     inputs_only=False,
                 )
@@ -409,7 +417,7 @@ def learner_process_fn(
                 )
 
         if end_race_stats["race_time"] < config_copy.threshold_to_save_all_runs_ms:
-            name = f"{map_name}_{end_race_stats['race_time']}_{datetime.now().strftime('%m%d_%H%M%S')}_{accumulated_stats['cumul_number_frames_played']}_{'explo' if is_explo else 'eval'}"
+            name = f"{map_name}_{end_race_stats['race_time']:.3f}_{datetime.now().strftime('%m%d_%H%M%S')}_{accumulated_stats['cumul_number_frames_played']}_{'explo' if is_explo else 'eval'}"
             utilities.save_run(
                 base_dir,
                 save_dir / "good_runs",
