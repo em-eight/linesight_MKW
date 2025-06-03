@@ -1,8 +1,10 @@
-from dolphin import event, gui, controller, savestate # type: ignore
+from dolphin import event, gui, controller, savestate, memory # type: ignore
 # Note that the program runs from the main linesight folder
 from MKW_rl.MKW_interaction.MKW_interface import MKW_Interface
 import os
 import sys
+
+from mkw_scripts.Modules.mkw_classes import common
 sys.path.append(os.path.expanduser("~") + "\\AppData\\Local\\programs\\python\\python312\\lib\\site-packages")
 
 from multiprocessing.connection import Listener
@@ -12,12 +14,21 @@ source_file_path = inspect.getfile(inspect.currentframe())
 
 from MKW_rl.MKW_interaction.MKW_data_translate import *
 from mkw_scripts.Modules.mkw_classes.race_manager import RaceState
+from mkw_scripts.Modules import mkw_config, mkw_utils, ttk_lib
 
 HOST = "127.0.0.1"
 
 class GameInstanceHook():
     def __init__(self, port=8478):
-        self.desired_inputs = {}
+        self.desired_inputs = {
+                "A": False,
+                "B": False,
+                "Up": False,
+                "StickX": 0,
+                "StickY": 0,
+                "TriggerLeft": 0,
+                "TriggerRight": 0
+            }
         self.last_desired_inputs = {}
         self.current_unprocessed_frame = None
         self.resized = None
@@ -33,8 +44,18 @@ class GameInstanceHook():
         self.last_game_data = None
         self.restarting_race = False
         self.restarting_race_timer = 0
+        self.ghost_saved = False
+        self.waiting_for_rkg = False
 
     def framedrawn_handler(self, width, height, data):
+        if self.waiting_for_rkg:
+            return
+        try:
+            self.game_data_interface.initialize_race_objects()
+            if self.game_data_interface.race_mgr.state() == RaceState.INTRO_CAMERA:
+                return
+        except Exception:
+            pass
         if self.restarting_race:
             if self.restarting_race_timer < 3:
                 self.desired_inputs = {
@@ -77,7 +98,7 @@ class GameInstanceHook():
                 # Reload game objects awaiting countdown start
                 self.game_data_interface.initialize_race_objects()
                 if self.game_data_interface.race_mgr.state() == RaceState.COUNTDOWN:
-                    print("Restarting via countdown timer")
+                    # print("Restarting via countdown timer")
                     self.restarting_race = False
                     self.restarting_race_timer = 0
                 # Skipped 1000 frames attempting to let the game load the race, so we continue instead.
@@ -160,6 +181,30 @@ class GameInstanceHook():
         self.frame_counter += 1
         # gui.draw_text((10, 10), self.red, f"Frame: {self.frame_counter}")
 
+        # Save ghost of completed race
+        if (not self.ghost_saved) and self.game_data_initiated and self.game_data_interface.race_mgr_player.race_completion_max() >= 4:
+            self.waiting_for_rkg = True
+            region = mkw_config.game_id_string
+            try:
+                address = {"RMCE01": 0x809B8F88, "RMCP01": 0x809BD748,
+                        "RMCJ01": 0x809BC7A8, "RMCK01": 0x809ABD88}
+                rkg_addr = mkw_utils.chase_pointer(address[region], [0x18], 'u32')
+            except KeyError:
+                raise common.RegionError
+            if not memory.read_u32(rkg_addr) == 0x524b4744:
+                return
+            gui.add_osd_message("Saving ghost")
+            racetime = self.game_data_interface.timer.minutes() * 60 + self.game_data_interface.timer.seconds() + self.game_data_interface.timer.milliseconds() / 1000
+
+            base_dir = config_copy.project_path # get base directory this program is running in
+            save_dir = base_dir / "save" / config_copy.run_name / "all_runs" # put save data within this directory
+            filename = save_dir / (str(racetime) + ".rkg")
+            with open(filename, 'wb') as f:
+                f.write(common.read_bytes(rkg_addr, 0x2800))
+
+            self.ghost_saved = True
+            self.waiting_for_rkg = False
+
         if self.load_state_desired:
             self.load_state_desired = False
             if self.desired_savestate.startswith("__slot__"):
@@ -167,6 +212,7 @@ class GameInstanceHook():
             else:
                 savestate.load_from_file(self.desired_savestate)
             self.game_data_initiated = False
+            self.ghost_saved = False
             # print("Loaded new savestate:", self.desired_savestate)
 
         controller.set_gc_buttons(0, self.desired_inputs)
