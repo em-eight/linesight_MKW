@@ -1,4 +1,4 @@
-from dolphin import memory
+from dolphin import memory # type: ignore
 
 from . import KartObject, SurfaceProperties, vec3
 
@@ -65,3 +65,13 @@ class KartCollide:
     def inst_solid_oob_timer(self) -> int:
         solid_oob_timer_ref = self.addr + 0x4A
         return memory.read_u16(solid_oob_timer_ref)
+    
+    @staticmethod
+    def glitchy_corner(player_idx=0) -> int:
+        kart_collide_ref = KartCollide.chain(player_idx)
+        glitchy_corner_ref = kart_collide_ref + 0x68
+        return memory.read_f32(glitchy_corner_ref)
+    
+    def inst_glitchy_corner(self) -> int:
+        glitchy_corner_ref = self.addr + 0x68
+        return memory.read_f32(glitchy_corner_ref)

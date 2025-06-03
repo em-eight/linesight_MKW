@@ -9,7 +9,7 @@ class KartState:
         self.bitfield = self.inst_bitfield
         self.airtime = self.inst_airtime
         self.top = self.inst_top
-        self.hwg_timer = self.inst_hwg_timer # Horizontal wall glitch. When the glitch is activated, it lasts for 20 frames
+        self.hwg_timer = self.inst_hwg_timer
         self.boost_ramp_type = self.inst_boost_ramp_type
         self.jump_pad_type = self.inst_jump_pad_type
         self.cnpt_id = self.inst_cnpt_id
@@ -58,7 +58,6 @@ class KartState:
         top_ref = self.addr + 0x28
         return vec3.read(top_ref)
 
-    # Horizontal wall glitch. When the glitch is activated, it lasts for 20 frames
     @staticmethod
     def hwg_timer(player_idx=0) -> int:
         kart_state_ref = KartState.chain(player_idx)

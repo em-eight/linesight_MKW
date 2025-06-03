@@ -1,6 +1,5 @@
 from dolphin import memory # type: ignore
 from mkw_scripts.Modules import mkw_config
-
 from . import RegionError
 
 class InputMgr:
@@ -21,10 +20,11 @@ class InputMgr:
 
     @staticmethod
     def chain() -> int:
+        id = mkw_config.game_id_string
         try:
             address = {"RMCE01": 0x809B8F4C, "RMCP01": 0x809BD70C,
                     "RMCJ01": 0x809BC76C, "RMCK01": 0x809ABD4C}
-            return memory.read_u32(address[mkw_config.game_id_string])
+            return memory.read_u32(address[id])
         except KeyError:
             raise RegionError
 

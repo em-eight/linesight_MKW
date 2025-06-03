@@ -1,6 +1,8 @@
 from dolphin import memory # type: ignore
 from enum import Enum
 
+from mkw_scripts.Modules.mkw_classes import common
+
 from . import CourseId, CupId
 
 class RaceConfigEngineClass(Enum):
@@ -81,7 +83,7 @@ class RaceConfigSettings:
     def hud_player_ids(self) -> bytearray:
         """char[4]"""
         hud_player_ids_ref = self.addr + 0x1C
-        return memory.read_bytes(hud_player_ids_ref)
+        return common.read_bytes(hud_player_ids_ref)
     
     def cup_id(self) -> CupId:
         cup_id_ref = self.addr + 0x20

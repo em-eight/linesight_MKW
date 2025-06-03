@@ -1,6 +1,7 @@
 from dolphin import memory # type: ignore
-from mkw_scripts.Modules import mkw_config
 from enum import Enum
+
+from mkw_scripts.Modules import mkw_config
 
 from . import RaceConfig, RaceConfigScenario, RegionError
 
@@ -8,8 +9,7 @@ class RaceState(Enum):
     INTRO_CAMERA = 0  # Course preview
     COUNTDOWN = 1  # including starting pan
     RACE = 2
-    FINISHED_RACE = 3
-    FINISHED_RACEv2 = 4
+    FINISHED_RACE = 4
 
 class RaceManager:
     def __init__(self):
@@ -37,10 +37,11 @@ class RaceManager:
 
     @staticmethod
     def chain() -> int:
+        id = mkw_config.game_id_string
         try:
             address = {"RMCE01": 0x809B8F70, "RMCP01": 0x809BD730,
                     "RMCJ01": 0x809BC790, "RMCK01": 0x809ABD70}
-            return memory.read_u32(address[mkw_config.game_id_string])
+            return memory.read_u32(address[id])
         except KeyError:
             raise RegionError
 

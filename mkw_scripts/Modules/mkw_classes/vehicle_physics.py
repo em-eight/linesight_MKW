@@ -59,11 +59,11 @@ class VehiclePhysics:
     def rotation_speed(player_idx=0) -> float:
         vehicle_physics_ref = VehiclePhysics.chain(player_idx)
         rotation_speed_ref = vehicle_physics_ref + 0x64
-        return mat34.read(rotation_speed_ref)
+        return memory.read_f32(rotation_speed_ref)
     
     def inst_rotation_speed(self) -> float:
         rotation_speed_ref = self.addr + 0x64
-        return mat34.read(rotation_speed_ref)
+        return memory.read_f32(rotation_speed_ref)
     
     @staticmethod
     def position(player_idx=0) -> vec3:

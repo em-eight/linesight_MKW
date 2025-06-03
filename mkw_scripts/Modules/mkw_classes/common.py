@@ -1,10 +1,11 @@
 from dolphin import memory # type: ignore
-from mkw_scripts.Modules import mkw_config
 
 from dataclasses import dataclass
 from enum import Enum
 import math
 import struct
+
+from mkw_scripts.Modules import mkw_config
 
 class RegionError(Exception):
     def __init__(self, message=f"Expected Mario Kart Wii game ID (RMCX01), " \
@@ -27,8 +28,8 @@ class vec2:
 
     @staticmethod
     def read(ptr) -> "vec2":
-        bytes = read_bytes(ptr, 0x8)
-        return vec2(*struct.unpack('>' + 'f'*2, bytes))
+        bts = read_bytes(ptr, 0x8)
+        return vec2(*struct.unpack('>' + 'f'*2, bts))
 
 @dataclass
 class vec3:
@@ -42,19 +43,68 @@ class vec3:
     def __sub__(self, other):
         return vec3(self.x - other.x, self.y - other.y, self.z - other.z)
 
+    def __mul__(self, other):
+        """ vec3 * vec3 -> float (dot product)
+            vec3 * float -> vec3 (scalar multiplication)"""
+        if type(other) == vec3:
+            return self.x * other.x + self.y * other.y + self.z * other.z
+        else:
+            return vec3(self.x * other, self.y * other, self.z * other)
+
+    def __matmul__(self, other):
+        """ vec3 @ vec3 -> vec3 (cross product)
+            vec3 @ float -> vec3 (scalar multiplication)"""        
+        if type(other) == vec3:
+            x = self.y*other.z - self.z*other.y
+            y = self.z*other.x - self.x*other.z
+            z = self.x*other.y - self.y*other.x
+            return vec3(x,y,z)
+        else:
+            return vec3(self.x * other, self.y * other, self.z * other)
+        
     def length(self) -> float:
         return math.sqrt(self.x**2 + self.y**2 + self.z**2)
 
     def length_xz(self) -> float:
         return math.sqrt(self.x**2 + self.z**2)
 
+    def forward(self, facing_yaw) -> float:
+        speed_yaw = -180/math.pi * math.atan2(self.x, self.z)
+        diff_angle_rad = (facing_yaw - speed_yaw)*math.pi/180
+        return math.sqrt(self.x**2 + self.z**2)*math.cos(diff_angle_rad)
+
+    def sideway(self, facing_yaw) -> float:
+        speed_yaw = -180/math.pi * math.atan2(self.x, self.z)
+        diff_angle_rad = (facing_yaw - speed_yaw)*math.pi/180
+        return math.sqrt(self.x**2 + self.z**2)*math.sin(diff_angle_rad)
+
     @staticmethod
     def read(ptr) -> "vec3":
-        bytes = read_bytes(ptr, 0xC)
-        return vec3(*struct.unpack('>' + 'f'*3, bytes))
+        bts = read_bytes(ptr, 0xC)
+        return vec3(*struct.unpack('>' + 'f'*3, bts))
+
+    """def write(self, addr):
+        memory.write_bytes(addr, self.to_bytes())"""
+
+    @staticmethod
+    def from_bytes(bts) -> "vec3":
+        return vec3(*struct.unpack('>' + 'f'*3, bts))
+
+    def to_bytes(self) -> bytearray:
+        return bytearray(struct.pack('>fff', self.x, self.y, self.z))
+
+    def __str__(self):
+        return str(self.x)+','+str(self.y)+','+str(self.z)
+
+    @staticmethod
+    def from_string(string) -> "vec3":
+        temp = string.split(',')
+        assert len(temp) == 3
+        return vec3(float(temp[0]), float(temp[1]), float(temp[2]))
     
-    def to_list(self):
-        return [self.x, self.y, self.z]
+
+
+
 
 @dataclass
 class mat34:
@@ -73,11 +123,8 @@ class mat34:
 
     @staticmethod
     def read(ptr) -> "mat34":
-        bytes = read_bytes(ptr, 0x30)
-        return mat34(*struct.unpack('>' + 'f'*12, bytes))
-    
-    def to_list(self):
-        return [self.e00, self.e01, self.e02, self.e03, self.e10, self.e11, self.e12, self.e13, self.e20, self.e21, self.e22, self.e23]
+        bts = read_bytes(ptr, 0x30)
+        return mat34(*struct.unpack('>' + 'f'*12, bts))
 
 @dataclass
 class quatf:
@@ -88,8 +135,92 @@ class quatf:
 
     @staticmethod
     def read(ptr) -> "quatf":
-        bytes = read_bytes(ptr, 0x10)
-        return quatf(*struct.unpack('>' + 'f'*4, bytes))
+        bts = read_bytes(ptr, 0x10)
+        return quatf(*struct.unpack('>' + 'f'*4, bts))
+
+    def __str__(self):
+        return str(self.x)+','+str(self.y)+','+str(self.z)+','+str(self.w)
+
+    """def write(self, addr):
+        memory.write_bytes(addr, self.to_bytes())"""
+
+    @staticmethod
+    def from_string(string) -> "quatf":
+        temp = string.split(',')
+        assert len(temp) == 4
+        return quatf(float(temp[0]), float(temp[1]), float(temp[2]), float(temp[3]))
+
+    @staticmethod
+    def from_bytes(bts) -> "quatf":
+        return quatf(*struct.unpack('>' + 'f'*4, bts))
+
+    def to_bytes(self) -> bytearray:
+        return bytearray(struct.pack('>ffff', self.x, self.y, self.z, self.w))
+
+    @staticmethod
+    def from_angles(angles):
+        #arg : angles : eulerAngle
+        cr = math.cos(angles.pitch * 0.5 / (180/math.pi))
+        sr = math.sin(angles.pitch * 0.5 / (180/math.pi))
+        cp = math.cos(angles.yaw * 0.5 / (180/math.pi))
+        sp = math.sin(angles.yaw * 0.5 / (180/math.pi))
+        cy = math.cos(angles.roll * 0.5 / (180/math.pi))
+        sy = math.sin(angles.roll * 0.5 / (180/math.pi))
+
+        return quatf(cr * sp * sy + sr * cp * cy,
+                     cr * sp * cy + sr * cp * sy,
+                     - cr * cp * sy + sr * sp * cy,
+                     - cr * cp * cy + sr * sp * sy)
+
+
+def angle_degree_format(angle):
+    return ((angle+180)%360) - 180
+
+class eulerAngle:
+    """A class for Euler Angles.
+    Angles in degrees, between -180 and 180"""
+    def __init__(self, pitch=0, yaw=0, roll=0):
+        self.pitch = angle_degree_format(pitch)
+        self.yaw = angle_degree_format(yaw)
+        self.roll = angle_degree_format(roll)
+
+    def __add__(self, other):
+        pitch = self.pitch + other.pitch
+        yaw = self.yaw + other.yaw
+        roll = self.roll + other.roll
+        return eulerAngle(pitch, yaw, roll)
+               
+    def __sub__(self, other):
+        pitch = self.pitch - other.pitch
+        yaw = self.yaw - other.yaw
+        roll = self.roll - other.roll
+        return eulerAngle(pitch, yaw, roll)
+
+    def __mul__(self, other):
+        ''' angle * number -> angle '''
+        pitch = self.pitch * other
+        yaw = self.yaw * other
+        roll = self.roll * other
+        return eulerAngle(pitch, yaw, roll)
+
+    @staticmethod
+    def from_quaternion(q : quatf):
+        x1, x2 = 2*q.x*q.w-2*q.y*q.z, 1-2*q.x*q.x-2*q.z*q.z
+        y1, y2 = 2*q.y*q.w-2*q.x*q.z, 1-2*q.y*q.y-2*q.z*q.z
+        z = 2*q.x*q.y + 2*q.z*q.w
+        roll = 180/math.pi * math.asin(z)
+        pitch = -180/math.pi * math.atan2(x1, x2)
+        yaw = -180/math.pi * math.atan2(y1, y2)
+        return eulerAngle(pitch, yaw, roll)
+
+    def get_unit_vec3(self):
+        """ Return a vec3 of size 1, which point
+            the same direction as self """
+        y = math.sin(self.pitch*math.pi /180)
+        xz = math.cos(self.pitch*math.pi /180)
+        z = xz * math.cos(self.yaw*math.pi /180)
+        x = - xz * math.sin(self.yaw*math.pi /180)
+        return vec3(x,y,z)
 
 @dataclass
 class ExactTimer:
@@ -120,13 +251,6 @@ class ExactTimer:
         self.sec += carry
         carry, self.sec = divmod(self.sec, 60)
         self.min += int(carry)
-
-    def to_float(self) -> float:
-        self.normalize()
-        total = self.mil
-        total += self.sec
-        total += self.min * 60
-        return total
 
     def __str__(self):
         return "{:02d}:{:012.9f}".format(self.min, self.sec + self.mil)

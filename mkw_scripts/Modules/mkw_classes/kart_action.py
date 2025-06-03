@@ -1,4 +1,5 @@
-from dolphin import memory
+from dolphin import memory # type: ignore
+
 
 from . import KartObject
 

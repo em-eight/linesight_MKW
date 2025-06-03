@@ -6,10 +6,11 @@ from . import RegionError
 class KartObjectManager:
     @staticmethod
     def chain() -> int:
+        id = mkw_config.game_id_string
         try:
             address = {"RMCE01": 0x809BD110, "RMCP01": 0x809C18F8,
                     "RMCJ01": 0x809C0958, "RMCK01": 0x809AFF38}
-            return memory.read_u32(address[mkw_config.game_id_string])
+            return memory.read_u32(address[id])
         except KeyError:
             raise RegionError
 

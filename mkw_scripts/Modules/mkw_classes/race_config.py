@@ -14,10 +14,11 @@ class RaceConfig:
 
     @staticmethod
     def chain() -> int:
+        id = mkw_config.game_id_string
         try:
             address = {"RMCE01": 0x809B8F68, "RMCP01": 0x809BD728,
                     "RMCJ01": 0x809BC788, "RMCK01": 0x809ABD68}
-            return memory.read_u32(address[mkw_config.game_id_string])
+            return memory.read_u32(address[id])
         except KeyError:
             raise RegionError
         
