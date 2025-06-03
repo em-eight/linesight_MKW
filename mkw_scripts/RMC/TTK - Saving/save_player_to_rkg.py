@@ -1,4 +1,4 @@
-from dolphin import gui
+from dolphin import gui # type: ignore
 from Modules import ttk_lib
 
 """

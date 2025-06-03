@@ -1,13 +1,15 @@
-from dolphin import gui, memory, utils
+from dolphin import gui, memory # type: ignore
 from dataclasses import dataclass
 from enum import Enum
 import math
 import os
 from typing import Tuple, List, Optional
 import zlib
+from config_files.user_config import project_scripts_path
 
 from .framesequence import FrameSequence
 from . import ttk_config
+from . import mkw_config
 
 from .mkw_classes import RaceManager, RaceState
 from .mkw_classes import GhostController, GhostButtonsStream
@@ -278,7 +280,7 @@ def write_to_csv(inputs: FrameSequence, player_type: PlayerType) -> None:
     # Get csv file path
     player_str = "Player" if player_type == PlayerType.PLAYER else "Ghost"
     relative_path = ttk_config.text_file_path(player_str)
-    absolute_path = os.path.join(utils.get_script_dir(), relative_path)
+    absolute_path = os.path.join(project_scripts_path, relative_path)
     
     # Write to csv, error if cannot write
     if inputs.write_to_file(absolute_path):
@@ -291,7 +293,7 @@ def write_to_csv(inputs: FrameSequence, player_type: PlayerType) -> None:
 def write_to_backup_csv(inputs: FrameSequence, backup_number: int) -> None:
     relative_path = ttk_config.text_file_path("Backup")
     relative_path = relative_path.replace("##", "{:02d}".format(backup_number))
-    inputs.write_to_file(os.path.join(utils.get_script_dir(), relative_path))
+    inputs.write_to_file(os.path.join(project_scripts_path, relative_path))
         
 def get_metadata_and_write_to_rkg(inputs: FrameSequence, player_type: PlayerType) -> None:
     # Get metadata
@@ -320,7 +322,7 @@ def write_to_rkg(file_bytes: bytearray, player_type: PlayerType) -> None:
     # Get csv file path
     player_str = "Player" if player_type == PlayerType.PLAYER else "Ghost"
     relative_path = ttk_config.rkg_file_path[player_str]
-    absolute_path = os.path.join(utils.get_script_dir(), relative_path)
+    absolute_path = os.path.join(project_scripts_path, relative_path)
     
     try:
         with open(absolute_path, "wb") as f:
@@ -335,7 +337,7 @@ def get_input_sequence_from_csv(player_type: PlayerType) -> FrameSequence:
     # Get csv file path
     player_str = "Player" if player_type == PlayerType.PLAYER else "Ghost"
     relative_path = ttk_config.text_file_path(player_str)
-    absolute_path = os.path.join(utils.get_script_dir(), relative_path)
+    absolute_path = os.path.join(project_scripts_path, relative_path)
     
     # Get the frame sequence
     return FrameSequence(absolute_path)
@@ -343,12 +345,12 @@ def get_input_sequence_from_csv(player_type: PlayerType) -> FrameSequence:
 def get_controller_calc():
     address = {"RMCE01": 0x8051a8a0, "RMCP01": 0x8051ed14,
                "RMCJ01": 0x8051e694, "RMCK01": 0x8050cd38}
-    return address[utils.get_game_id()]
+    return address[mkw_config.game_id_string]
 
 def get_memcpy_branch():
     instr = {"RMCE01": 0x4bcb6c91, "RMCP01": 0x4bcb28bd,
              "RMCJ01": 0x4bcb2e5d, "RMCK01": 0x4bcc4bf5}
-    return instr[utils.get_game_id()]
+    return instr[mkw_config.game_id_string]
 
 controller_calc = get_controller_calc()
 memcpy_branch = get_memcpy_branch()
