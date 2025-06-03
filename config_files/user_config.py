@@ -15,7 +15,8 @@ is_linux = platform in ["linux", "linux2"]
 # -Likely to be unused for this project
 target_python_link_path = Path(os.path.expanduser("~")) / "Documents" / "TMInterface" / "Plugins" / "Python_Link.as"
 
-# Typically path(os.path.expanduser("~")) / "Documents" / "TrackMania"
+project_scripts_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "MKW_linesight" / "linesight_MKW" / "mkw_scripts"
+
 dolphin_base_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "MKW_linesight" / "dolphin-stable"
 
 # Communication port for the first TMInterface instance that will be launched.
@@ -44,10 +45,3 @@ video_backend = "Vulkan"
 
 # Dolphin emulation speed. Usually set to unlimited (0.0), but can be set to 0.5 for 100% or 1.0 for 200% and so forth. I do not know why it is multiplied by 2, just be aware that it is.
 game_speed = "0.0"
-
-"""
-This simplistic method of training on one track at a time will remain until I reimplement the map switching logic that config.py is designed to handle
-In the meantime, I need to make sure it works and then make sure the exploration to exploitation ratio is correct
-"""
-# Path to savestate that starts a new time trial on a specific track
-track_start_state_path = dolphin_base_path / "linesight_savestates" / "rGV2_F_FR_hitbox.sav"
