@@ -412,6 +412,7 @@ class GameManager:
             game_data = self.sock.recv()
             if game_data["race_data"]["state"] == 0:
                 # Race has not started, so skip frames until we enter countdown
+                print("ERROR: Attempted to process intro camera state during rollout")
                 continue
             rollout_results["frames"].append(resized_frame)
             # print("Game manager rollout() :: race time is", game_data["race_data"]["race_time"])
@@ -456,6 +457,7 @@ class GameManager:
                 # unfinished
                 floats = np.hstack(
                     (
+                        0,
                         np.array(
                             network_inputs.get_input_data()
                         ),
@@ -487,7 +489,6 @@ class GameManager:
                 # print("Items left:", manual_item_count, "While race is:", game_data["race_data"]["race_completion_max"])
                 if manual_item_count <= math.floor(-(game_data["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)):
                     computed_action["TriggerLeft"] = 0 # Disable item button if mushroom usage is bad
-                    action_idx = np.intp(3) # swap action idx to non-item usage one
                     # print("Prevented item:", manual_item_count, "While max is:", math.floor(-(game_data["race_data"]["race_completion_max"] - 4)))
 
             # Save the estimated Q-value of the starting state (start of the track)

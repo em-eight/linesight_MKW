@@ -99,7 +99,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
 
             # LUIGI CIRCUIT FORCE SHORTCUT
             if rollout_results["state_float"][i]["kart_data"]["position"][2] > config_copy.LC_punish_line:
-                reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate # triple punishment
+                reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate
             
             reward_into[i] += temp_completion_reward
 
