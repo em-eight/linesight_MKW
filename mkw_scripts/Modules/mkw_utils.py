@@ -1,8 +1,13 @@
-from dolphin import memory #type: ignore
-from mkw_scripts.Modules import mkw_config
+from dolphin import memory, event # type: ignore
+from collections import deque
 
-from mkw_scripts.Modules.mkw_classes import mat34, quatf, vec3, ExactTimer
-from mkw_scripts.Modules.mkw_classes import VehicleDynamics, VehiclePhysics, RaceManagerPlayer
+from mkw_scripts.Modules import mkw_config
+from mkw_scripts.Modules.mkw_classes import common
+
+from .mkw_classes import mat34, quatf, vec3, ExactTimer, eulerAngle
+from .mkw_classes import VehicleDynamics, VehiclePhysics, RaceManagerPlayer, KartObjectManager, RaceManager, RaceState
+
+import math
 
 # These are helper functions that don't quite fit in common.py
 # This file also contains getter functions for a few global variables.
@@ -10,6 +15,47 @@ from mkw_scripts.Modules.mkw_classes import VehicleDynamics, VehiclePhysics, Rac
 # NOTE (xi): wait for get_game_id() to be put in dolphin.memory before clearing
 #  these commented-out lines:
 
+fps_const = 60000/1001 #Constant for fps in mkw (59.94fps)
+
+
+class History:
+    ''' Class for storing each frame some data
+        get_data_dict must be a dict of functions that return the desired data
+        the functions must be able to take 0 arguments  (Maybe if needed i'll implement an argument dict, for the argument of the corresponding functions
+        
+        Example : {'position' : VehiclePhysics.position,
+                    'rotation'  : VehiclePhysics.main_rotation}
+        data is a list containing dict of data corresponding
+        data[0] contain the latest added frame'''
+    
+    def __init__(self, get_data_dict, max_size):
+        self.max_size = max_size
+        self.get_data = get_data_dict
+        self.data = deque()
+
+    def update(self):
+        if len(self.data) >= self.max_size:
+            self.data.pop()
+        cur_frame_dict = {}
+        for key in self.get_data.keys():
+            cur_frame_dict[key] = self.get_data[key]()
+        self.data.appendleft(cur_frame_dict)
+
+    def __getitem__(self, index):
+        return self.data[index]
+
+    def __len__(self):
+        return len(self.data)
+
+    def clear(self):
+        self.data.clear()
+        
+    def __bool__(self):
+        return bool(self.data)
+
+    def __iter__(self):
+        return iter(self.data)
+    
 def chase_pointer(base_address, offsets, data_type):
     """This is a helper function to allow multiple ptr dereferences in
        quick succession. base_address is dereferenced first, and then
@@ -38,15 +84,48 @@ def chase_pointer(base_address, offsets, data_type):
 
 
 def frame_of_input():
+    id = mkw_config.game_id_string
     address = {"RMCE01": 0x809BF0B8, "RMCP01": 0x809C38C0,
                "RMCJ01": 0x809C2920, "RMCK01": 0x809B1F00}
-    return memory.read_u32(address[mkw_config.game_id_string])
+    return memory.read_u32(address[id])
 
+def extended_race_state():
+    ''' Return an extended RaceState.
+    -1 <-> Not in a race
+    0  <-> Intro Camera
+    1  <-> Countdown
+    2  <-> In the race
+    3  <-> Race over (waiting for other to finish)
+    4  <-> Race over (everyone is finished)
+    5  <-> Race over and ghost saved'''
+    if KartObjectManager.player_count()==0:
+        return -1
+    else:
+        race_mgr = RaceManager()
+        state = race_mgr.state().value
+        if state < 4:
+            return state
+        else:
+            try:
+                region = mkw_config.game_id_string
+                address = {"RMCE01": 0x809B8F88, "RMCP01": 0x809BD748,
+                        "RMCJ01": 0x809BC7A8, "RMCK01": 0x809ABD88}
+                rkg_addr = chase_pointer(address[region], [0x18], 'u32')
+            except KeyError:
+                raise common.RegionError
+            if memory.read_u32(rkg_addr) == 0x524b4744 :
+                return 5
+            else:
+                return 4
+            
 def delta_position(playerIdx=0):
     dynamics_ref = VehicleDynamics(playerIdx)
     physics_ref = VehiclePhysics(addr=dynamics_ref.vehicle_physics())
 
     return physics_ref.position() - dynamics_ref.position()
+
+def is_single_player():
+    return KartObjectManager().player_count() == 1
 
 # Next 3 functions are used for exact finish display
 
@@ -81,5 +160,246 @@ def get_unrounded_time(lap, player):
     return t
 
 # TODO: Rotation display helper functions
+def quaternion_to_euler_angle(q):
+    """Param : quatf
+        Return : eulerAngle """
+    x1, x2 = 2*q.x*q.w-2*q.y*q.z, 1-2*q.x*q.x-2*q.z*q.z
+    y1, y2 = 2*q.y*q.w-2*q.x*q.z, 1-2*q.y*q.y-2*q.z*q.z
+    z = 2*q.x*q.y + 2*q.z*q.w
+    roll = 180/math.pi * math.asin(z)
+    pitch = -180/math.pi * math.atan2(x1, x2)
+    yaw = -180/math.pi * math.atan2(y1, y2)
+    return eulerAngle(pitch, yaw, roll)
 
-# TODO: Time difference display helper functions
+def get_facing_angle(player):
+    """Param : int player_id
+        Return : eulerAngle , correspond to facing angles"""
+    quaternion = VehiclePhysics(player).main_rotation()
+    return quaternion_to_euler_angle(quaternion)
+
+def speed_to_euler_angle(speed):
+    """Param : vec3 speed
+        Return : eulerAngle"""
+    s = speed
+    pitch = 180/math.pi * math.atan2(s.z, s.y) #unsure and unused
+    yaw = -180/math.pi * math.atan2(s.x, s.z)
+    roll = -180/math.pi * math.atan2(s.y, s.x)#unsure and unused
+    return eulerAngle(pitch, yaw, roll)
+
+def get_moving_angle(player):
+    """Param : int player_id
+        Return : eulerAngle , correspond to moving angles"""
+    speed = delta_position(player)
+    return speed_to_euler_angle(speed)
+
+
+"""The time difference functions.
+time_difference_[name](P1, S1, P2, S2) is a function that takes as arguments
+P1,S1 : Player1's Position and Speed vec3.
+P2,S2 : Player2's Position and Speed vec3
+Return the time it would take for Player1 to catch Player2 (not always symmetric)
+
+get_time_difference_[name](Player1, Player2) takes as arguments
+Player1 : Player1 ID
+Player2 : Player2 ID
+Return the time it would take for Player1 to catch Player2 (not always symmetric)
+It's the function called in draw_infodisplay.py
+"""
+
+def get_physics(player1, player2):
+    """Take the Player1 and Player2 ID's, return their
+        P1, S1, P2, S2 data"""
+    P1, S1 = VehiclePhysics(player1).position(), delta_position(player1)
+    P2, S2 = VehiclePhysics(player2).position(), delta_position(player2)
+    return P1,S1,P2,S2
+
+
+def get_distance_ghost_vec():
+    """Give the distance (vec3) between the player and the ghost
+        Player to ghost vec"""
+    player_position = VehiclePhysics(0).position()
+    ghost_position = VehiclePhysics(1).position()
+    return (ghost_position - player_position)
+
+def get_distance_ghost():
+    """Give the distance(float) between the player and the ghost"""
+    return get_distance_ghost_vec().length()
+
+def time_difference_absolute(P1, P2, S1, S2):
+    s = S1.length()
+    if s != 0:
+        return (P2-P1).length() / s
+    return float('inf')
+    
+def get_time_difference_absolute(player1, player2):
+    """Time difference "Absolute" (simple and bad)
+    Simply takes the distance player-ghost, and divide it by raw speed (always positive)"""
+    P1, S1, P2, S2 = get_physics(player1, player2)
+    return time_difference_absolute(P1, P2, S1, S2)
+
+def time_difference_relative(P1, P2, S1, S2):
+    L = (P2 - P1).length()
+    if L == 0:
+        return 0
+    s = S1*(P2-P1)/L
+    if s == 0:
+        return float('inf')  
+    return (P2-P1).length() / s
+
+def get_time_difference_relative(player1, player2):
+    """Time difference "Relative" 
+    Take distance player-ghost. Divide it by the player's speed "toward" the ghost (dot product)"""
+    P1, S1, P2, S2 = get_physics(player1, player2)
+    return time_difference_relative(P1, P2, S1, S2)
+
+def time_difference_projected(P1, P2, S1, S2):
+    s = S1.length()
+    if s == 0:
+        return float('inf')
+    return (P2-P1)*S1/(s**2)
+
+def get_time_difference_projected(player1, player2):
+    """ Time difference "Projected"
+    Take the distance between the player and the plane oriented by the player speed, covering the ghost.
+    Then divide it by the player raw speed
+    This is the 2D version because no numpy"""
+    P1, S1, P2, S2 = get_physics(player1, player2)
+    return time_difference_projected(P1, P2, S1, S2)
+
+
+def time_to_cross(A, S, B, C):
+    """If A is going at a constant speed S, how many frame will it take
+        to cross the vertical plan containing B and C
+        Param : A, S, B, C : (vec3),(vec3),(vec3),(vec3)
+        Return t (float) """
+    N = (B-C)@vec3(0,1,0) #normal vector to the plan containing B,C
+    ns = N*S
+    if ns != 0:
+        return N*(B-A)/ns
+    return float('inf')
+
+def time_difference_crosspath(P1, P2, S1, S2):
+    t1 = time_to_cross(P1, S1, P2, P2+S2)
+    t2 = time_to_cross(P2, S2, P1, P1+S1)
+    return t1-t2
+
+
+def get_time_difference_crosspath(player1, player2):
+    """Time difference "CrossPath"
+    Take both XZ trajectories of the player and the ghost
+    Calculate how much time it takes them to reach the crosspoint. (2D only)
+    Return the difference."""
+    P1, S1, P2, S2 = get_physics(player1, player2)
+    return time_difference_crosspath(P1, P2, S1, S2)
+
+
+
+def get_finish_line_coordinate():
+    """pointA is the position of the left side of the finish line (vec3)
+        point B ---------------------right------------------------------
+        both have 0 as their Y coordinate."""
+    game_id = mkw_config.game_id_string
+    address = {"RMCE01": 0x809B8F28, "RMCP01": 0x809BD6E8,
+               "RMCJ01": 0x809BC748, "RMCK01": 0x809ABD28}
+    kmp_ref = chase_pointer(address[game_id], [0x4, 0x0], 'u32')
+    offset = memory.read_u32(kmp_ref+0x24)
+    pointA = vec3(memory.read_f32(kmp_ref+0x4C+offset+0x8+0x0), 0, memory.read_f32(kmp_ref+0x4C+offset+0x8+0x4))
+    pointB = vec3(memory.read_f32(kmp_ref+0x4C+offset+0x8+0x8), 0, memory.read_f32(kmp_ref+0x4C+offset+0x8+0xC))
+    return pointA, pointB
+
+    
+def time_difference_tofinish(P1, P2, S1, S2):
+    A,B = get_finish_line_coordinate()
+    t1 = time_to_cross(P1, S1, A, B)
+    t2 = time_to_cross(P2, S2, A, B)
+    return t1-t2
+
+def get_time_difference_tofinish(player1, player2):
+    """Assume player and ghost are not accelerated.
+    Calculate the time to the finish line for both, and takes the difference."""
+    P1, S1, P2, S2 = get_physics(player1, player2)
+    return time_difference_tofinish(P1, P2, S1, S2)
+
+
+def find_index(value, value_list):
+    """Find the index i so value_list[i]>=value>value_list[i+1]
+        We suppose value_list[i+1] < value_list[i]
+            and value_list[0]>= value>=value_list[-1]"""
+    n = len(value_list)
+    if n == 1 :
+        return 0
+    h = n//2
+    if value <= value_list[h]:
+        return h+find_index(value, value_list[h:])
+    return find_index(value, value_list[:h])
+    
+def get_time_difference_racecompletion(history):
+    """Use RaceCompletionData History to calculate the frame difference
+        The function assume that RaceCompletion is increasing every frames"""
+    if history:
+        curframe = history[0]
+        lastframe = history[-1]
+        inf = float('inf')
+        if curframe['prc'] >= curframe['grc']:
+            if curframe['grc'] > lastframe['prc']:
+                l = [dic['prc'] for dic in history]
+                i = find_index(curframe['grc'], l)
+                t = i + (curframe['grc'] - l[i])/ (l[i+1] - l[i])
+                return -t
+            return -inf
+        else:
+            if curframe['prc'] > lastframe['grc']:
+                l =[dic['grc'] for dic in history]
+                i = find_index(curframe['prc'], l)
+                t = i + (curframe['prc'] - l[i])/ (l[i+1] - l[i])
+                return t
+            return inf
+    else:
+        return float('inf')
+
+
+def get_timediff_settings(string):
+    if string == 'player':
+        return 0, 1
+    if string == 'ghost':
+        return 1, 0
+    pp, sp, pg, sg = get_physics(0,1)
+    player_is_ahead = int(sp*(pg-pp)>0)
+    if string == 'ahead':
+        return 1-player_is_ahead, player_is_ahead
+    if string == 'behind':
+        return player_is_ahead, 1-player_is_ahead
+    else:
+        print('TimeDiff setting value not recognized. Default to "player"')
+        return 0, 1
+
+def player_teleport(player_id = 0,
+                    x = None, y = None, z = None,
+                    pitch = None, yaw = None, roll = None):
+    '''Function to teleport the player in player_id to the
+        corresponding position and rotation.
+        Use None for parameter you don't wanna change'''
+    
+    addr = VehiclePhysics.chain(player_id)
+    position = VehiclePhysics.position(player_id)
+    quaternion = VehiclePhysics.main_rotation(player_id)
+    angles = eulerAngle.from_quaternion(quaternion)
+
+    if not x is None:
+        position.x = x
+    if not y is None:
+        position.y = y
+    if not z is None:
+        position.z = z
+    if not pitch is None:
+        angles.pitch = pitch
+    if not yaw is None:
+        angles.yaw = yaw
+    if not roll is None:
+        angles.roll = roll
+    
+    quaternion = quatf.from_angles(angles)
+    position.write(addr + 0x68)
+    quaternion.write(addr + 0xF0)
+
+        

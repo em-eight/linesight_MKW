@@ -1,8 +1,8 @@
 # NOTE (xi): unfinished, currently only for the use of testing other scripts
 #            that rely on this module
 
-from mkw_scripts.Modules.mkw_classes import RaceConfig, RaceConfigScenario
-from mkw_scripts.Modules.mkw_classes import RaceConfigPlayer, RaceConfigSettings
+from .mkw_classes import RaceConfig, RaceConfigScenario
+from .mkw_classes import RaceConfigPlayer, RaceConfigSettings
 
 def vehicle_id(playerIdx=0):
     race_config_scenario = RaceConfigScenario(addr=RaceConfig.race_scenario())
