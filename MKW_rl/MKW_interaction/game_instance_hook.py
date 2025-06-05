@@ -200,7 +200,7 @@ class GameInstanceHook():
             save_dir = base_dir / "save" / config_copy.run_name / "all_runs" # put save data within this directory
             if not os.path.isdir(base_dir / "save" / config_copy.run_name / "all_runs"):
                 os.mkdir(save_dir)
-            filename = save_dir / f"{self.game_data_interface.race_settings.course_id()}_{racetime:.3f}.rkg"
+            filename = save_dir / f"{self.game_data_interface.race_settings.course_id().name}_{racetime:.3f}.rkg"
             with open(filename, 'wb') as f:
                 f.write(common.read_bytes(rkg_addr, 0x2800))
 
