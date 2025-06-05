@@ -20,19 +20,19 @@ This file is preconfigured with sensible hyperparameters for the map ESL-Hockoli
 has a computer with 16GB RAM.
 """
 from itertools import repeat
+import numpy as np
 
 from config_files.inputs_list import *
-from config_files.state_normalization import *
 from config_files.user_config import *
 
 W_downsized = 153
 H_downsized = 114
 
-run_name = "LC_mushroom_retry"
+run_name = "LC_big_run"
 running_speed = 80
-restart_race_command = "restart_race"
+restart_race_command = "restart_race" # can use basically anything so long as it doesn't conflict with a savestate filename.
 
-LC_punish_line = 44600
+LC_punish_line = 44650
 LC_punish_rate = 5
 LC_mushroom_point = 4.68
 
@@ -47,10 +47,11 @@ n_zone_centers_extrapolate_before_start_of_map = 20
 n_prev_actions_in_inputs = 5
 
 n_contact_material_physics_behavior_types = 4  # See contact_materials.py
-cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 10_800 # 6m at 30fps
+cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 240 # in seconds
 cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 4 # 4s
 
-temporal_mini_race_duration_f = game_running_fps * 7
+temporal_mini_race_duration_s = 6
+temporal_mini_race_duration_f = game_running_fps * temporal_mini_race_duration_s
 temporal_mini_race_duration_actions = temporal_mini_race_duration_f // f_per_action
 oversample_long_term_steps = 40
 oversample_maximum_term_steps = 5
@@ -60,7 +61,7 @@ margin_to_announce_finish_meters = 700
 
 global_schedule_speed = 1.5
 
-constant_reward_per_action = -2 / (7 * (game_running_fps / f_per_action))
+constant_reward_per_action = -2 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
 
 epsilon_schedule = [
     (0, 1),
@@ -141,11 +142,12 @@ reward_per_m_advanced_along_centerline = 5 / 500
 n_steps = 3
 
 # -4 / time_per_lap * lap_count * actions_per_second
-expected_lap_duration_s = 25
+# TODO: Mark this value for individual tracks
+expected_lap_duration_s = 25 # 1:15 total time expected
 
 expected_lap_duration_per_action = expected_lap_duration_s * (game_running_fps / f_per_action) # at 60 fps
 average_lap_increment_per_action = 1 / expected_lap_duration_per_action
-total_second_increment_expected = 3 / (expected_lap_duration_s * 3 / 7)
+total_second_increment_expected = 3 / (expected_lap_duration_s * 3 / temporal_mini_race_duration_s)
 
 # added_race_completion * 2
 # expected_lap_count * 3 / 7 # how many 7-second increments per lap
@@ -174,7 +176,7 @@ button_A_held_reward_per_s = button_A_held_reward_per_f * game_running_fps
 # Mushroom boost punishments. Mushrooms last 1.5s, and give roughly +30-40 speed
 
 # Numper of game_data points + 7 (number of input buttons in 1 input) * number of previous actions + 3 (3d point) * n zone centers
-float_input_dim = 42 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
+float_input_dim = 43 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
 
 float_hidden_dim = 256
 conv_head_output_dim = 5280
@@ -218,7 +220,10 @@ gamma_schedule = [
     (0, 0.999),
     (1_500_000, 0.999),
     (2_500_000, 1),
+    # (0, 0.975),
 ]
+# Mini-race disable commit:
+# https://github.com/Linesight-RL/linesight/commit/c171384c086714f465a7f71949dd047e497875a8
 
 batch_size = 512
 weight_decay_lr_ratio = 1 / 50
@@ -249,10 +254,11 @@ max_allowable_distance_to_virtual_checkpoint = np.sqrt((distance_between_checkpo
 timeout_during_run_ms = 10_100
 timeout_between_runs_ms = 600_000_000
 tmi_protection_timeout_s = 500
-game_reboot_interval = 3600 * 8  # In seconds
+game_reboot_interval = 3600 * 7  # In seconds
 
 # Do not save runs until after we start getting roughly human-level results (i.e. prevent saving 1000s of extra bad runs)
-frames_before_save_best_runs = 3_000_000
+# (Likely unnecessary due to large gaps in improvement times at start of training)
+frames_before_save_best_runs = 250_000
 
 plot_race_time_left_curves = False
 n_transitions_to_plot_in_distribution_curves = 1000
@@ -267,7 +273,8 @@ use_jit = True
 # gpu_collectors_count is the number of Dolphin instances that will be launched in parallel.
 # It is recommended that users adjust this number depending on the performance of their machine.
 # We recommend trying different values and finding the one that maximises the number of batches done per unit of time.
-# Note that each additional instance requires a separate folder containing a full Dolphin installation, and should be named sequentially. (Dolphin's game save files cannot be shared between instances)
+# Note that each additional instance requires a separate folder containing a full Dolphin installation, and should be named sequentially.
+# (Dolphin's game save files cannot be shared between instances)
 # For instance, if the original install is called 'dolphin_folder', installations 2 and 3 should be named 'dolphin_folder2' and 'dolphin_folder3'.
 gpu_collectors_count = 3
 
@@ -298,12 +305,11 @@ sync_virtual_and_real_checkpoints = True
 In this section we define the map cycle.
 
 It is a list of iterators, each iterator must return tuples with the following information:
-    - short map name        (string):     for logging purposes
-    - map path              (string):     to automatically load the map in game. 
-                                          This is the same map name as the "map" command in the TMInterface console.
-    - reference line path   (string):     where to find the reference line for this map
-    - is_explo              (boolean):    whether the policy when running on this map should be exploratory
-    - fill_buffer           (boolean):    whether the memories generated during this run should be placed in the buffer 
+    - short map name        (string):   for logging purposes
+    - map path (savestate file path):   (string): to automatically load the map in game. 
+    - reference line path   (string):   where to find the reference line for this map
+    - is_explo              (boolean):  whether the policy when running on this map should be exploratory
+    - fill_buffer           (boolean):  whether the memories generated during this run should be placed in the buffer 
 
 The map cycle may seem complex at first glance, but it provides a large amount of flexibility:
     - can train on some maps, test blindly on others
@@ -311,12 +317,12 @@ The map cycle may seem complex at first glance, but it provides a large amount o
     - can define multiple reference lines for a given map
     - etc...
 
-The example below defines a simple cycle where the agent alternates between four exploratory runs on map5, and one 
+The example below defines a simple cycle where the agent alternates between four exploratory runs on Luigi Circuit (LC), and one 
 evaluation run on the same map.
 
 map_cycle = [
-    repeat(("map5", '"My Challenges/Map5.Challenge.Gbx"', "map5_0.5m_cl.npy", True, True), 4),
-    repeat(("map5", '"My Challenges/Map5.Challenge.Gbx"', "map5_0.5m_cl.npy", False, True), 1),
+    repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", True, True), 4),
+    repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", False, True), 1),
 ]
 """
 

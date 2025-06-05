@@ -2,7 +2,7 @@
 This file contains user-level configuration.
 It is expected that the user fills this file once when setting up the project, and does not need to modify it after.
 Note that there is an additional config file located in mkw-scripts/mkw_config.py to mark the region of your MKW game file.
-"""
+""" # TODO: remove excess config file and port into user config
 
 import os
 from pathlib import Path
@@ -14,6 +14,8 @@ is_linux = platform in ["linux", "linux2"]
 # Usually Path(os.path.expanduser("~")) / "Documents" / "TMInterface" / "Plugins" / "Python_Link.as"
 # -Likely to be unused for this project
 target_python_link_path = Path(os.path.expanduser("~")) / "Documents" / "TMInterface" / "Plugins" / "Python_Link.as"
+
+project_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "MKW_linesight" / "linesight_MKW"
 
 project_scripts_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "MKW_linesight" / "linesight_MKW" / "mkw_scripts"
 
