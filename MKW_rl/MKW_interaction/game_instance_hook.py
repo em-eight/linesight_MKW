@@ -16,10 +16,10 @@ from MKW_rl.MKW_interaction.MKW_data_translate import *
 from mkw_scripts.Modules.mkw_classes.race_manager import RaceState
 from mkw_scripts.Modules import mkw_config, mkw_utils, ttk_lib
 
-HOST = "127.0.0.1"
+HOST = "127.0.0.1" # config_copy.HOST
 
 class GameInstanceHook():
-    def __init__(self, port=8478):
+    def __init__(self, port=config_copy.base_tmi_port): # 8478
         self.desired_inputs = {
                 "A": False,
                 "B": False,
@@ -126,7 +126,7 @@ class GameInstanceHook():
             self.desired_inputs = new_inputs
 
         if load_state_request is not None:
-            # Funky way of avoiding loading a savestate for every rollout (bad for performance)
+            # Funky way of avoiding loading a savestate for every rollout (bad for performance, I think)
             if socket_data[3] == config_copy.restart_race_command:
                 self.restarting_race = True
                 self.desired_inputs = {
@@ -226,21 +226,21 @@ class GameInstanceHook():
         fails = 0
         while not success:
             try:
-                self.listener = Listener((HOST, self.port))
-                print("Game hook socket listening on port", self.port)
+                self.listener = Listener((HOST, (self.port + (os.getpid() % (65535 - self.port))))) # Listener((HOST, self.port))
+                print("Game hook socket listening on port", (self.port + (os.getpid() % (65535 - self.port))))
                 self.conn = self.listener.accept()
                 success = True
-            except OSError:
-                self.port += 1 # Expert level port finding code
+            except Exception as e:
+                print(e)
                 fails += 1
                 if fails > 10:
                     print("Error connecting to program.")
                     success = True # just let the puppy crash lol
-        print("Connected accepted from:", self.listener.last_accepted)
+        print("Connected accepted")
 
 # Use base tmi port in an attempt to find the right port lol
 mymanager = GameInstanceHook(config_copy.base_tmi_port) #  + len(get_dolphin_pids()) - 1
-print("Working from port", mymanager.port)
+print("Working from port", (mymanager.port + (os.getpid() % (65535 - mymanager.port))))
 print("Working in directory", source_file_path)
 """
 Register the socket, ensure it is connected

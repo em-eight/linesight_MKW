@@ -112,7 +112,8 @@ class GameManager:
 
     def register(self, timeout=None):
         # https://stackoverflow.com/questions/6920858/interprocess-communication-in-python
-        self.sock = Client((HOST, self.tmi_port))
+        print(self.tmi_port + (self.dolphin_process_id % (65535 - self.tmi_port)))
+        self.sock = Client((HOST, (self.tmi_port + (self.dolphin_process_id % (65535 - self.tmi_port))))) # Client((HOST, self.tmi_port))
         """# signal.signal(signal.SIGINT, self.signal_handler) # Handle close game signal
         # https://stackoverflow.com/questions/45864828/msg-waitall-combined-with-so-rcvtimeo
         # https://stackoverflow.com/questions/2719017/how-to-set-timeout-on-pythons-socket-recv-method

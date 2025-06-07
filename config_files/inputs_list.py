@@ -159,7 +159,7 @@ inputs = [
         "Up": False,
         "StickY": 0,
     },
-    {  # 7 Full left # Note that inputs #7 and #8 may not be necessary for all tracks, but are useful for alignment after wheelies.
+    {  # 7 Full left
         "StickX": -1,
         "A": True,
         "B": False,
@@ -184,7 +184,7 @@ inputs = [
         "StickX": 1,
         "StickY": 0,
         "TriggerLeft": 0,
-        "TriggerRight": 1
+        "TriggerRight": 0
     },
     {  # 10 Trick straight
         "Up": True,
