@@ -104,10 +104,7 @@ engineered_holding_A_reward_schedule = [
 ]
 # Punish A.I. for using an item as a ratio multiplier to progress made during boost
 engineered_item_usage_reward_schedule = [
-    (0, 5),
-    (50_000, 5),
-    (300_000 * global_schedule_speed, 5),
-    (3_000_000 * global_schedule_speed, 4),
+    (0, 0),
 ]
 
 engineered_supergrinding_reward_schedule = [
