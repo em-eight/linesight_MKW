@@ -54,7 +54,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
     n_steps_max: int,
     gamma: float,
     discard_non_greedy_actions_in_nsteps: bool,
-    engineered_item_usage_reward=-4.0,
+    engineered_item_usage_reward=0.0,
     engineered_button_A_pressed_reward=2,
     engineered_supergrinding_reward=0.0,
     engineered_close_to_vcp_reward=0,
@@ -89,8 +89,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
             # discourage mushroom usage according to speed increase for the duration of the boost
             # 83 > 120 = 40 speed increase. 1/3rd of progression. so, discount roughly 40% (?) of progression
             if (rollout_results["state_float"][i]["boost_data"]["shroom_boost"] > 60
-                and temp_completion_reward > 0
-                and not rollout_results["state_float"][i]["surface_properties"]): # not on offroad, shouldn't have used shroom
+                and temp_completion_reward > 0):
                 temp_completion_reward = 0 # 0.6 (40% discount for speed increase) divided by 30/90 as we can't confirm source of boost outside that range
 
             if rollout_results["state_float"][i]["race_data"]["item_count"] < rollout_results["state_float"][i - 1]["race_data"]["item_count"]:
@@ -114,8 +113,14 @@ def fill_buffer_from_rollout_with_n_steps_rule(
 
                 """if (math.floor(-(rollout_results["state_float"][i]["race_data"]["race_completion_max"] - 4))) > rollout_results["state_float"][i]["race_data"]["item_count"]:
                     reward_into[i] -= (temp_completion_reward / 2) # less reward for you, you mushroomed too much"""
+        elif rollout_results["state_float"][i]["race_data"]["state"] == 1:
+            completion_reward = (
+                rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1]
+            ) * config_copy.reward_per_m_advanced_along_centerline * 5 # Based on estimated time to lap completion
+            reward_into[i] += completion_reward
                 
         if i < n_frames - 1: # apply these rewards even during countdown
+            # TODO: Create external velocity reward for superhopping / MG
             """if config_copy.final_speed_reward_per_f_per_s != 0:
                 # car is driving forward
                 reward_into[i] += config_copy.final_speed_reward_per_f_per_s * (
@@ -126,18 +131,6 @@ def fill_buffer_from_rollout_with_n_steps_rule(
 
             if engineered_item_usage_reward != 0 and config_copy.inputs[rollout_results["actions"][i]]["TriggerLeft"] > 0:
                 reward_into[i] += engineered_item_usage_reward
-
-            if engineered_speedslide_reward != 0 and np.all(rollout_results["state_float"][i][25:29]):
-                # all wheels touch the ground
-                reward_into[i] += engineered_speedslide_reward * max(
-                    0.0,
-                    1 - abs(speedslide_quality_tarmac(rollout_results["state_float"][i][56], rollout_results["state_float"][i][58]) - 1),
-                )  # TODO : indices 25:29, 56 and 58 are hardcoded, this is bad....
-
-            # lateral speed is higher than 2 meters per second
-            reward_into[i] += (
-                engineered_neoslide_reward if abs(rollout_results["state_float"][i][56]) >= 2.0 else 0
-            )  # TODO : 56 is hardcoded, this is bad....
             # kamikaze reward
             if (
                 engineered_kamikaze_reward != 0
