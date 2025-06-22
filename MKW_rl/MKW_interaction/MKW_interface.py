@@ -50,6 +50,7 @@ class MKW_Interface():
 		self.race_settings = RaceConfigSettings(self.race_scenario.settings())
 
 		self.kart_object = KartObject()
+		self.kart_settings = KartSettings(addr=self.kart_object.kart_settings())
 		self.kart_state = KartState(addr=self.kart_object.kart_state())
 		self.kart_move = KartMove(addr=self.kart_object.kart_move())
 		self.kart_body = KartBody(addr=self.kart_object.kart_body())
@@ -87,6 +88,7 @@ class MKW_Interface():
 		
 		surface_properties = self.kart_collide.surface_properties()
 
+		# Decode surface properties into a list of booleans
 		is_wall = (surface_properties.value & SurfaceProperties.WALL) > 0
 		is_solid_oob = (surface_properties.value & SurfaceProperties.SOLID_OOB) > 0
 		is_boost_ramp = (surface_properties.value & SurfaceProperties.BOOST_RAMP) > 0
@@ -101,8 +103,8 @@ class MKW_Interface():
 		BOOST_PANEL_OR_RAMP = 0x100
 		TRICKABLE = 0x800
 		"""
-		return is_offroad
-        
+		return [is_wall, is_solid_oob, is_boost_ramp, is_offroad, is_boost_panel_or_ramp, is_trickable]
+	
 	def get_checkpoint_data(self):
 		return {
 			"lap_completion": self.race_mgr_player.lap_completion(),
@@ -172,6 +174,8 @@ class MKW_Interface():
 	
 	def get_kart_data(self) -> Kart_Data:
 		kart_data = Kart_Data()
+		kart_data["character"] = self.kart_settings.character().value
+		kart_data["vehicle"] = self.kart_settings.vehicle().value
 		kart_data["position"] = self.convert_vec3(self.vehicle_physics.position())
 		kart_data["rotation"] = self.convert_quatf(self.vehicle_physics.main_rotation())
 		kart_data["speed"] = self.vehicle_physics.speed_norm()
@@ -184,6 +188,7 @@ class MKW_Interface():
 		else:
 			kart_data["wheelie_cooldown"] = 0
 		kart_data["trick_cooldown"] = self.kart_jump.cooldown()
+		kart_data["respawn_timer"] = self.kart_move.time_in_respawn()
 		return kart_data
 
 	def get_race_data(self) -> Race_Data:
@@ -198,6 +203,8 @@ class MKW_Interface():
 		race_data["driving_direction"] = self.get_driving_direction()
 		race_data["item_count"] = self.get_item_count()
 
+		if self.race_mgr_player.race_completion_max() >= 4: # race finished
+			self.timer = self.race_mgr_player.inst_race_finish_time()
 		race_data["race_time"] = self.timer.minutes() * 60 + self.timer.seconds() + self.timer.milliseconds() / 1000
 		race_data["state"] = self.race_mgr.state().value
 
