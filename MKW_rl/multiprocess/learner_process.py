@@ -138,8 +138,8 @@ def learner_process_fn(
         online_network.load_state_dict(torch.load(f=save_dir / "weights1.torch", weights_only=False))
         target_network.load_state_dict(torch.load(f=save_dir / "weights2.torch", weights_only=False))
         print(" =====================     Learner weights loaded !     ============================")
-    except:
-        print(" Learner could not load weights")
+    except Exception as e:
+        print(" Learner could not load weights", e)
 
     with shared_network_lock:
         uncompiled_shared_network.load_state_dict(uncompiled_online_network.state_dict())
@@ -149,8 +149,8 @@ def learner_process_fn(
         accumulated_stats = joblib.load(save_dir / "accumulated_stats.joblib")
         shared_steps.value = accumulated_stats["cumul_number_memories_generated"]
         print(" =====================      Learner stats loaded !      ============================")
-    except:
-        print(" Learner could not load stats")
+    except Exception as e:
+        print(" Learner could not load stats", e)
 
     if "rolling_mean_ms" not in accumulated_stats.keys():
         # Temporary to preserve compatibility with old runs that doesn't have this feature. To be removed later.
@@ -181,8 +181,8 @@ def learner_process_fn(
         optimizer1.load_state_dict(torch.load(f=save_dir / "optimizer1.torch", weights_only=False))
         scaler.load_state_dict(torch.load(f=save_dir / "scaler.torch", weights_only=False))
         print(" =========================     Optimizer loaded !     ================================")
-    except:
-        print(" Could not load optimizer")
+    except Exception as e:
+        print(" Could not load optimizer", e)
 
     tensorboard_suffix = utilities.from_staircase_schedule(
         config_copy.tensorboard_suffix_schedule,
@@ -394,7 +394,7 @@ def learner_process_fn(
                 # print("WEEUMS", temp_rollout_results["actions"][i])
                 if temp_rollout_results["actions"][i] == np.intp(6):
                     # print("attempting to use an item:", temp_rollout_results["state_float"][i]["race_data"]["item_count"], ":", math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)))
-                    if temp_rollout_results["state_float"][i]["race_data"]["item_count"] <= math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)):
+                    if temp_rollout_results["state_float"][i]["race_data"]["item_count"] <= math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.Mushroom_point)):
                         temp_rollout_results["actions"][i] = np.intp(2) # swap action idx to non-item usage one
                         # print("Prevented item:", temp_rollout_results["state_float"][i]["race_data"]["item_count"], "While max is:", math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)))
             # This is a new alltime_minimum

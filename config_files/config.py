@@ -28,17 +28,19 @@ from config_files.user_config import *
 W_downsized = 153
 H_downsized = 114
 
-run_name = "LC_big_run"
+run_name = "rSGB_superhopping_minirace_3s"
 running_speed = 80
+
+use_race_restart = False
 restart_race_command = "restart_race" # can use basically anything so long as it doesn't conflict with a savestate filename.
 
 LC_punish_line = 44650
-LC_punish_rate = 5
-LC_mushroom_point = 4.68
+LC_punish_rate = 0
+Mushroom_point = 3.99
 
-tm_engine_step_per_action = 2
+tm_engine_step_per_action = 1
 f_per_action = tm_engine_step_per_action
-game_running_fps = 30
+game_running_fps = 60
 n_zone_centers_in_inputs = 40
 one_every_n_zone_centers_in_inputs = 5
 n_zone_centers_extrapolate_after_end_of_map = 500
@@ -47,10 +49,12 @@ n_zone_centers_extrapolate_before_start_of_map = 20
 n_prev_actions_in_inputs = 5
 
 n_contact_material_physics_behavior_types = 4  # See contact_materials.py
+# race not completed in time
 cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 240 # in seconds
+# No progress has been made recently
 cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 4 # 4s
 
-temporal_mini_race_duration_s = 6
+temporal_mini_race_duration_s = 3
 temporal_mini_race_duration_f = game_running_fps * temporal_mini_race_duration_s
 temporal_mini_race_duration_actions = temporal_mini_race_duration_f // f_per_action
 oversample_long_term_steps = 40
@@ -61,7 +65,7 @@ margin_to_announce_finish_meters = 700
 
 global_schedule_speed = 1.5
 
-constant_reward_per_action = -2 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
+constant_reward_per_action = -5 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
 
 epsilon_schedule = [
     (0, 1),
@@ -72,6 +76,7 @@ epsilon_schedule = [
 epsilon_boltzmann_schedule = [
     (0, 0.15),
     (3_000_000 * global_schedule_speed, 0.03),
+    (5_000_000 * global_schedule_speed, 0.02),
 ]
 tau_epsilon_boltzmann = 0.01
 discard_non_greedy_actions_in_nsteps = True
@@ -95,7 +100,7 @@ engineered_kamikaze_reward_schedule = [
 engineered_close_to_vcp_reward_schedule = [
     (0, 0)
 ]
-# Reward A.I. for accelerating
+# Reward A.I. for accelerating -- obsolete. completely unnecessary.
 engineered_holding_A_reward_schedule = [
     (0, 2),
     (50_000, 2),
@@ -111,7 +116,19 @@ engineered_supergrinding_reward_schedule = [
     (0, 0),
 ]
 
+# likely obsolete. Very likely unnecessary.
 engineered_start_boost_charge_reward_schedule = [
+    (0, 0),
+]
+
+# Average EV expected for an AI that is not doing bad or good
+expected_average_external_velocity = 20
+
+# give +2 reward total for the duration of a mini-race for good performance
+external_velocity_reward_per_f = (2 / temporal_mini_race_duration_actions) / expected_average_external_velocity
+
+# Reward maintaining ev based on an average of 60 as being optimized
+engineered_external_velocity_reward_schedule = [
     (0, 0),
 ]
 
@@ -140,7 +157,7 @@ n_steps = 3
 
 # -4 / time_per_lap * lap_count * actions_per_second
 # TODO: Mark this value for individual tracks
-expected_lap_duration_s = 25 # 1:15 total time expected
+expected_lap_duration_s = 25 # TODO: Set this value in the map cycle
 
 expected_lap_duration_per_action = expected_lap_duration_s * (game_running_fps / f_per_action) # at 60 fps
 average_lap_increment_per_action = 1 / expected_lap_duration_per_action
@@ -173,7 +190,7 @@ button_A_held_reward_per_s = button_A_held_reward_per_f * game_running_fps
 # Mushroom boost punishments. Mushrooms last 1.5s, and give roughly +30-40 speed
 
 # Numper of game_data points + 7 (number of input buttons in 1 input) * number of previous actions + 3 (3d point) * n zone centers
-float_input_dim = 43 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
+float_input_dim = 51 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
 
 float_hidden_dim = 256
 conv_head_output_dim = 5280
@@ -214,10 +231,10 @@ tensorboard_suffix_schedule = [
     (150_000_000 * global_schedule_speed, "_7"),
 ]
 gamma_schedule = [
-    (0, 0.999),
-    (1_500_000, 0.999),
-    (2_500_000, 1),
-    # (0, 0.975),
+    # (0, 0.999),
+    # (1_500_000, 0.999),
+    # (2_500_000, 1),
+    (0, 0.993),
 ]
 # Mini-race disable commit:
 # https://github.com/Linesight-RL/linesight/commit/c171384c086714f465a7f71949dd047e497875a8
@@ -273,7 +290,7 @@ use_jit = True
 # Note that each additional instance requires a separate folder containing a full Dolphin installation, and should be named sequentially.
 # (Dolphin's game save files cannot be shared between instances)
 # For instance, if the original install is called 'dolphin_folder', installations 2 and 3 should be named 'dolphin_folder2' and 'dolphin_folder3'.
-gpu_collectors_count = 3
+gpu_collectors_count = 4
 
 # Every n batches, each collection process updates it's network to match the current Online Network as defined by DQN
 send_shared_network_every_n_batches = 10
@@ -370,12 +387,18 @@ map_cycle += [
     # repeat(("rGV2_auto", "linesight_savestates\\rGV2_auto_hitbox_charge2.sav", "rGV2.npy", False, True), 1),
     # repeat(("rGV2", "linesight_savestates\\rGV2_F_FR_hitbox.sav", "rGV2.npy", True, True), 4),
     # repeat(("rGV2", "linesight_savestates\\rGV2_F_FR_hitbox.sav", "rGV2.npy", False, True), 1),
-    # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB_hitbox.sav", "rMC3.npy", True, True), 4),
-    # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB_hitbox.sav", "rMC3.npy", False, True), 1),
-    # repeat(("rMC3", "__slot__2", "rMC3.npy", True, True), 4),
+    # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", True, True), 4),
+    # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", False, True), 1),
+    # repeat(("rMC3", "__slot__2", "rMC3.npy", True, True), 4), # Using __slot__X for dolphin save slots. Not recommended, as the save state depends on the dolphin save.
     # repeat(("rMC3", "__slot__2", "rMC3.npy", False, True), 1),
-    # repeat(("MG", "linesight_savestates\\MG_F_SS.sav", "MG.npy", True, True), 4), # load from savestate slot instead of file?
+    # repeat(("MG", "linesight_savestates\\MG_F_SS.sav", "MG.npy", True, True), 4),
     # repeat(("MG", "linesight_savestates\\MG_F_SS.sav", "MG.npy", False, True), 1),
-    repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", True, True), 4),
-    repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", False, True), 1),
+    # repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", True, True), 4),
+    # repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", False, True), 1),
+    repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", True, True), 4),
+    repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", False, True), 1),
+    repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", True, True), 4),
+    repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", False, True), 1),
+    repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", True, True), 4),
+    repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", False, True), 1),
 ]
