@@ -559,6 +559,9 @@ class Network_Inputs():
         self.__flat_game_data = None
         self.previous_actions_idx = previous_actions_idx
 
+    def get_previous_actions_idx(self):
+        return self.previous_actions_idx
+
     def get_input_dimensions(self):
         previous_inputs_length = config_copy.n_prev_actions_in_inputs * 18
         game_data_length = len(self.get_flattened_game_data())

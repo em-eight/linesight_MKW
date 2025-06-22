@@ -456,7 +456,7 @@ class GameManager:
 
             if compute_action_asap_floats:
                 compute_action_asap_floats = False
-                floats = MKW_data_translate.get_1d_state_floats(game_data, network_inputs)
+                floats = MKW_data_translate.get_1d_state_floats(game_data, network_inputs.get_previous_actions_idx())
                 # print("Floats generated:", len(floats))
             pc7 = time.perf_counter_ns()
             instrumentation__answer_action_step += pc7 - pc6
