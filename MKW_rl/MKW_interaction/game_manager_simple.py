@@ -1,4 +1,5 @@
 from multiprocessing import process
+from MKW_rl.MKW_interaction import MKW_data_translate
 from config_files import config_copy, user_config
 
 import math
@@ -353,7 +354,7 @@ class GameManager:
         
         # Load the savestate if we have not done so (we are on the wrong map)
         # print("loading savestate")
-        if self.latest_map_path_requested != savestate_path or last_loop_finished:
+        if (self.latest_map_path_requested != savestate_path or last_loop_finished) or not config_copy.use_race_restart:
             # We have to load the savestate we want
             print("Loading savestate")
             self.sock.send([False, False, computed_action, savestate_path])
@@ -451,24 +452,11 @@ class GameManager:
                 * config_copy.n_zone_centers_in_inputs : config_copy.one_every_n_zone_centers_in_inputs,
                 :,
             ] - game_data["kart_data"]["position"]
+            game_data["relative_zone_centers"] = state_zone_center_coordinates_in_car_reference_system.ravel().tolist()
 
             if compute_action_asap_floats:
                 compute_action_asap_floats = False
-
-                # unfinished
-                floats = np.hstack(
-                    (
-                        0,
-                        np.array(
-                            network_inputs.get_input_data()
-                        ),
-                        np.array(
-                            network_inputs.get_flattened_game_data()
-                        ),
-                        state_zone_center_coordinates_in_car_reference_system.ravel(),
-                    ),
-                    dtype=np.float32
-                )
+                floats = MKW_data_translate.get_1d_state_floats(game_data, network_inputs)
                 # print("Floats generated:", len(floats))
             pc7 = time.perf_counter_ns()
             instrumentation__answer_action_step += pc7 - pc6
@@ -488,7 +476,7 @@ class GameManager:
             if computed_action["TriggerLeft"] != 0:
                 # pressing item button
                 # print("Items left:", manual_item_count, "While race is:", game_data["race_data"]["race_completion_max"])
-                if manual_item_count <= math.floor(-(game_data["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)):
+                if manual_item_count <= math.floor(-(game_data["race_data"]["race_completion_max"] - config_copy.Mushroom_point)):
                     computed_action["TriggerLeft"] = 0 # Disable item button if mushroom usage is bad
                     # print("Prevented item:", manual_item_count, "While max is:", math.floor(-(game_data["race_data"]["race_completion_max"] - 4)))
 
@@ -504,8 +492,6 @@ class GameManager:
             rollout_results["actions"].append(action_idx)
             rollout_results["action_was_greedy"].append(action_was_greedy)
             rollout_results["q_values"].append(q_values)
-
-            game_data["relative_zone_centers"] = state_zone_center_coordinates_in_car_reference_system.ravel().tolist()
             rollout_results["state_float"].append(game_data)
 
             n_th_action_we_compute += 1
@@ -524,7 +510,7 @@ class GameManager:
             # print(game_data["start_boost_charge"], " And race time is", race_time)
             # Failed to finish race in time. Note that race_time is used to prevent resetting during the countdown
             if ((frames_processed > self.max_overall_duration_f or frames_processed > last_progress_improvement_f + self.max_minirace_duration_f) 
-                and not this_rollout_is_finished and race_time > 2.5):
+                and not this_rollout_is_finished and race_time > 2.5) or game_data["kart_data"]["respawn_timer"] > 0:
                 #print("Failed at:", current_zone_idx, "Max completion:", rollout_results["furthest_zone_idx"])
                 
                 end_race_stats["race_finished"] = False
