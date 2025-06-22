@@ -74,6 +74,9 @@ def fill_buffer_from_rollout_with_n_steps_rule(
     )  # Discount factor that will be placed in front of next_step in Bellman equation, depending on n_steps chosen
 
     reward_into = np.zeros(n_frames)
+    # reward_into_constant = np.zeros(n_frames)
+    # reward_into_progress = np.zeros(n_frames)
+    # reward_into_ev = np.zeros(n_frames)
     for i in range(1, n_frames): # run for each frame of the rollout
         """reward_into[i] += config_copy.constant_reward_per_ms * (
             config_copy.f_per_action
@@ -82,6 +85,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
         )"""
         if rollout_results["state_float"][i]["race_data"]["state"] == 2: # Only apply these rewards during the actual race (Not race finished, not during countdown timer)
             reward_into[i] += config_copy.constant_reward_per_action
+            # reward_into_constant[i] += config_copy.constant_reward_per_action
             temp_completion_reward = (
                 rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1] # meters progressed (negative if backwards)
             ) * config_copy.reward_per_m_advanced_along_centerline # Based on estimated time to lap completion
@@ -98,9 +102,15 @@ def fill_buffer_from_rollout_with_n_steps_rule(
 
             # LUIGI CIRCUIT FORCE SHORTCUT
             if rollout_results["state_float"][i]["kart_data"]["position"][2] > config_copy.LC_punish_line:
-                reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate
+                reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate # TODO: Set this value in the map cycle?
             
             reward_into[i] += temp_completion_reward
+            # reward_into_progress[i] += temp_completion_reward
+            # reward based on external velocity
+            external_velocity_reward = config_copy.external_velocity_reward_per_f * math.sqrt(rollout_results["state_float"][i]["kart_data"]["external_velocity"][0]**2 + 
+                                                                               rollout_results["state_float"][i]["kart_data"]["external_velocity"][2]**2)
+            reward_into[i] += external_velocity_reward
+            # reward_into_ev[i] += external_velocity_reward
 
             if i < n_frames - 1:
                 if engineered_close_to_vcp_reward != 0:
@@ -111,13 +121,12 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                         [0.5, -1]
                     ) # normalizing to 1, -1 using np.interp so when we multiply by engineered reward we are reasonable
 
-                """if (math.floor(-(rollout_results["state_float"][i]["race_data"]["race_completion_max"] - 4))) > rollout_results["state_float"][i]["race_data"]["item_count"]:
-                    reward_into[i] -= (temp_completion_reward / 2) # less reward for you, you mushroomed too much"""
         elif rollout_results["state_float"][i]["race_data"]["state"] == 1:
             completion_reward = (
                 rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1]
             ) * config_copy.reward_per_m_advanced_along_centerline * 5 # Based on estimated time to lap completion
             reward_into[i] += completion_reward
+            # reward_into_progress[i] += completion_reward
                 
         if i < n_frames - 1: # apply these rewards even during countdown
             # TODO: Create external velocity reward for superhopping / MG
@@ -146,6 +155,11 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                     reward_into[i] += engineered_start_boost_reward if rollout_results["state_float"][i]["start_boost_charge"] < 0.95 else -engineered_start_boost_reward
                 else:
                     reward_into[i] += -engineered_start_boost_reward if rollout_results["state_float"][i]["start_boost_charge"] <= 0.925 else 0
+
+    """print("Rewards for progress:", np.sum(reward_into_progress))
+    print("Constant reward:", np.sum(reward_into_constant))
+    print("Rewards for EV:", np.sum(reward_into_ev))
+    print("Total:", np.sum(reward_into))"""
 
     for i in range(n_frames - 1):  # Loop over all frames that were generated
         # Switch memory buffer sometimes
