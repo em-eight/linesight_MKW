@@ -194,7 +194,8 @@ class GameInstanceHook():
             if not memory.read_u32(rkg_addr) == 0x524b4744:
                 return
             gui.add_osd_message("Saving ghost")
-            racetime = self.game_data_interface.timer.minutes() * 60 + self.game_data_interface.timer.seconds() + self.game_data_interface.timer.milliseconds() / 1000
+            fin_timer = self.game_data_interface.race_mgr_player.inst_race_finish_time()
+            racetime = fin_timer.minutes() * 60 + fin_timer.seconds() + fin_timer.milliseconds() / 1000
 
             base_dir = config_copy.project_path # get base directory this program is running in
             save_dir = base_dir / "save" / config_copy.run_name / "all_runs" # put save data within this directory
