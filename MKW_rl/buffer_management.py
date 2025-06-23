@@ -83,7 +83,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
             if (i < n_frames - 1 or ("race_time" not in rollout_results)) # We haven't generated any frames, or the race has not started
             else rollout_results["race_time"] - (n_frames - 2) * config_copy.f_per_action
         )"""
-        if rollout_results["state_float"][i]["race_data"]["state"] == 2: # Only apply these rewards during the actual race (Not race finished, not during countdown timer)
+        if type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 2: # Only apply these rewards during the actual race (Not race finished, not during countdown timer)
             reward_into[i] += config_copy.constant_reward_per_action
             # reward_into_constant[i] += config_copy.constant_reward_per_action
             temp_completion_reward = (
@@ -121,7 +121,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                         [0.5, -1]
                     ) # normalizing to 1, -1 using np.interp so when we multiply by engineered reward we are reasonable
 
-        elif rollout_results["state_float"][i]["race_data"]["state"] == 1:
+        elif type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 1:
             completion_reward = (
                 rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1]
             ) * config_copy.reward_per_m_advanced_along_centerline * 5 # Based on estimated time to lap completion
@@ -129,7 +129,6 @@ def fill_buffer_from_rollout_with_n_steps_rule(
             # reward_into_progress[i] += completion_reward
                 
         if i < n_frames - 1: # apply these rewards even during countdown
-            # TODO: Create external velocity reward for superhopping / MG
             """if config_copy.final_speed_reward_per_f_per_s != 0:
                 # car is driving forward
                 reward_into[i] += config_copy.final_speed_reward_per_f_per_s * (
@@ -185,7 +184,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
         # Get action that was played
         action = rollout_results["actions"][i]
         terminal_actions = float((n_frames - 1) - i) if "race_time" in rollout_results else math.inf
-        next_state_has_passed_finish = ((i + n_steps) == (n_frames - 1)) and ("race_time" in rollout_results)
+        next_state_has_passed_finish = ((i + n_steps) == (n_frames - 1)) and ("race_time" in rollout_results) # last frame in the buffer and race_time exists, thus we finished
 
         if not next_state_has_passed_finish:
             next_state_img = rollout_results["frames"][i + n_steps]
@@ -197,8 +196,8 @@ def fill_buffer_from_rollout_with_n_steps_rule(
             next_state_float = state_float
             #next_state_potential = 0
 
-        state_float = get_1d_state_floats(state_float, rollout_results["actions"])
-        next_state_float = get_1d_state_floats(next_state_float, rollout_results["actions"][:-1])
+        state_float = get_1d_state_floats(state_float, rollout_results["actions"][:i])
+        next_state_float = get_1d_state_floats(next_state_float, rollout_results["actions"][:i + n_steps])
 
         list_to_fill.append(
             Experience(
