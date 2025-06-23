@@ -122,7 +122,7 @@ class Game_Data(TypedDict, total=False):
     airtime: int
 
 float_input_mean = [
-    config_copy.temporal_mini_race_duration_actions / 2,
+    0,
     0.9, # A
     0.1, # B
     0.1, # Dpad Up
@@ -392,7 +392,7 @@ float_input_deviation = [
     2.0, # rotation.w
     180.0, # speed_norm
     120.0, # external_velocity.x
-    120.0, # external_velocity.y
+    360.0, # external_velocity.y
     120.0, # external_velocity.z
     120.0, # internal_velocity.x
     120.0, # internal_velocity.y
@@ -407,7 +407,7 @@ float_input_deviation = [
     120.0, # moving_water_velocity.z
     20, # wheelie_cooldown
     30, # trick_cooldown
-    50, # respawn_timer
+    150, # respawn_timer
     1.0, # lap_completion
     4.0, # race_completion
     4.0, # race_completion_max

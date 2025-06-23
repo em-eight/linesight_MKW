@@ -188,7 +188,7 @@ class MKW_Interface():
 		else:
 			kart_data["wheelie_cooldown"] = 0
 		kart_data["trick_cooldown"] = self.kart_jump.cooldown()
-		kart_data["respawn_timer"] = self.kart_move.time_in_respawn()
+		kart_data["respawn_timer"] = self.kart_collide.time_before_respawn() # go figure, there's two different timers for the respawn. A waiting period, and a continuation period.
 		return kart_data
 
 	def get_race_data(self) -> Race_Data:
