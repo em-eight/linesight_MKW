@@ -19,20 +19,21 @@ project_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "MKW_lin
 
 project_scripts_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "MKW_linesight" / "linesight_MKW" / "mkw_scripts"
 
-dolphin_base_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "MKW_linesight" / "dolphin-stable"
+# Directory that dolphin is working from ( contains the .exe on Windows)
+dolphin_base_path = Path(os.path.expanduser("~")) / "Programs" / "dolphin"
+
+# If on Linux, path of the dolphin executable, starting at the dolphin_base_path
+linux_launch_game_path = "/Build/Binaries/dolphin-emu"
 
 # Communication port for the first TMInterface instance that will be launched.
 # If using multiple instances, the ports used will be base_tmi_port + 1, +2, +3, etc...
 base_tmi_port = 8478
 
-# If on Linux, path of a shell script that launches the game, with the TMInterface port as first argument
-linux_launch_game_path = "path_to_be_filled_only_if_on_linux"
-
 # If on windows, name of the TMLoader profile that with launch TmForever + TMInterface
 windows_TMLoader_profile_name = "default"
 
-# Location of the game file for MKW
-game_path = "C:\\Games\\Dolphin-x64\\Games\\MKW_Copies\\Mario_Kart_Wii.rvz"
+# Location of the MKW game file/folder (usually a .rvz or .iso)
+game_path = Path(os.path.expanduser("~")) / "Programs" / "MKWii" / "Mario_Kart_wii.rvz"
 
 # If on windows, path where the Dolphin exe can be found.
 # Usually Path(os.path.expanduser("~") / "AppData" / "Local" / "TMLoader" / "TMLoader.exe"
