@@ -18,10 +18,14 @@ import numpy as np
 import numpy.typing as npt
 import psutil
 
-import win32.lib.win32con as win32con
-import win32com.client
-import win32gui
-import win32process
+# import warnings ignored for cross-platform neatness
+if config_copy.is_linux:
+    import Xdo # type: ignore
+else:
+    import win32.lib.win32con as win32con # type: ignore
+    import win32com.client # type: ignore
+    import win32gui # type: ignore
+    import win32process # type: ignore
 
 HOST = "127.0.0.1"
 FRAME_WIDTH = 611
@@ -89,26 +93,48 @@ class GameManager:
     
     def get_window_id(self):
         assert self.dolphin_process_id is not None
+        if config_copy.is_linux:
+            self.dolphin_window_id = None
+            while self.dolphin_window_id == None:
+                window_search_depth = 1
+                while True:
+                    c1 = set(Xdo().search_windows(winname=b"Dolphin", max_depth=window_search_depth + 1))
+                    c2 = set(Xdo().search_windows(winname=b"Dolphin", max_depth=window_search_depth))
+                    c1 = {w_id for w_id in c1 if Xdo().get_pid_window(w_id) == self.dolphin_process_id}
+                    c2 = {w_id for w_id in c2 if Xdo().get_pid_window(w_id) == self.dolphin_process_id}
+                    c1_diff_c2 = c1.difference(c2)
+                    if len(c1_diff_c2) == 1:
+                        self.dolphin_window_id = c1_diff_c2.pop()
+                        break
+                    elif (
+                        len(c1_diff_c2) == 0 and len(c1) > 0
+                    ) or window_search_depth >= 10:  # 10 is an arbitrary cutoff in this search we do not fully understand
+                        print(
+                            "Warning: Worker could not find the window of the game it just launched, stopped at window_search_depth",
+                            window_search_depth,
+                        )
+                        break
+                    window_search_depth += 1
+        else:
+            def get_hwnds_for_pid(pid):
+                def callback(hwnd, hwnds):
+                    _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
 
-        def get_hwnds_for_pid(pid):
-            def callback(hwnd, hwnds):
-                _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
+                    if found_pid == pid:
+                        hwnds.append(hwnd)
+                    return True
 
-                if found_pid == pid:
-                    hwnds.append(hwnd)
-                return True
+                hwnds = []
+                win32gui.EnumWindows(callback, hwnds)
+                return hwnds
 
-            hwnds = []
-            win32gui.EnumWindows(callback, hwnds)
-            return hwnds
-
-        while True:
-            for hwnd in get_hwnds_for_pid(self.dolphin_process_id):
-                if "Dolphin" in win32gui.GetWindowText(hwnd):
-                    self.dolphin_window_id = hwnd
-                    return
-                # else:
-                #     raise Exception("Could not find TmForever window id.")
+            while True:
+                for hwnd in get_hwnds_for_pid(self.dolphin_process_id):
+                    if "Dolphin" in win32gui.GetWindowText(hwnd):
+                        self.dolphin_window_id = hwnd
+                        return
+                    # else:
+                    #     raise Exception("Could not find TmForever window id.")
 
     def register(self, timeout=None):
         # https://stackoverflow.com/questions/6920858/interprocess-communication-in-python
@@ -133,27 +159,29 @@ class GameManager:
 
     # Launch program and return pids
     def launch_game(self):
+        # See Dolphin Command Line Usage for more information (https://github.com/dolphin-emu/dolphin) (https://wiki.dolphin-emu.org/index.php?title=GameINI)
         self.dolphin_process_id = None
+        dolphin_process_number = ""
+        if self.process_number >= 1:
+            dolphin_process_number = self.process_number + 1
 
         if config_copy.is_linux:
-            """self.game_spawning_lock.acquire()
-            pid_before = self.get_tm_pids()
-            os.system(str(user_config.linux_launch_game_path) + " " + str(self.tmi_port))
+            self.game_spawning_lock.acquire()
+            pid_before = self.get_dolphin_pids()
+            # dolphin.exe path --no python subinterpreters
+            os.system(str(user_config.dolphin_base_path) + str(user_config.linux_launch_game_path) + (f"{dolphin_process_number} --video_backend='{config_copy.video_backend}'"
+                       f"--config=Dolphin.Core.EmulationSpeed={config_copy.game_speed}"
+                       "--batch --script MKW_rl/MKW_interaction/game_instance_hook.py"
+                       f"--no-python-subinterpreters --exec='{config_copy.game_path}' + str(self.tmi_port))"))
             while True:
-                pid_after = self.get_tm_pids()
-                tmi_pid_candidates = set(pid_after) - set(pid_before)
-                if len(tmi_pid_candidates) > 0:
-                    assert len(tmi_pid_candidates) == 1
+                pid_after = self.get_dolphin_pids()
+                dolphin_pid_candidates = set(pid_after) - set(pid_before)
+                if len(dolphin_pid_candidates) > 0:
+                    assert len(dolphin_pid_candidates) == 1
                     break
-            self.tm_process_id = list(tmi_pid_candidates)[0]"""
-            pass
+            self.dolphin_process_id = list(dolphin_pid_candidates)[0]
+
         else:
-            # print(user_config.base_tmi_port, " This is a test ", config_copy.trackmania_base_path) # Issue: user_config was not reflecting changes made. Solution: "pip uninstall linesight". A version of linesight in another location was taking priority
-            # See Dolphin Command Line Usage for more information (https://github.com/dolphin-emu/dolphin) (https://wiki.dolphin-emu.org/index.php?title=GameINI)
-            dolphin_process_number = ""
-            if self.process_number >= 1:
-                dolphin_process_number = self.process_number + 1
-            
             # print("Dolphin process number assigned as:", dolphin_process_number, "Derived from received process number of", self.process_number)
             launch_string = (
                 'powershell -executionPolicy bypass -command "& {'
@@ -218,25 +246,6 @@ class GameManager:
         if not self.is_game_running():
             print("Game not found. Starting Dolphin.")
             self.launch_game()
-
-    """# Using Felk fork.
-    async def grab_screen(self):
-        # (width, height, data)
-        large_image = await event.framedrawn()
-        print(large_image.shape)
-        # https://stackoverflow.com/questions/48121916/numpy-resize-rescale-image
-        input_size = 640
-        output_size = 128
-        bin_size = input_size // output_size # modular ratio of input to output
-        small_image = large_image.reshape((1, output_size, bin_size, output_size, bin_size)).max(4).max(2)
-        return small_image"""
-
-    """def set_inputs(self, action_idx: int, rollout_results: Dict):
-        if (
-            len(rollout_results["actions"]) == 0 or rollout_results["actions"][-1] != action_idx
-        ):  # Small performance trick, don't update input_state if it doesn't need to be updated
-            # TODO: Adjust for dolphin
-            self.iface.set_input_state(**config_copy.inputs[action_idx]) # inputs from inputs_list.py"""
 
     """def select_map_savestate(self, savestate_path: str, zone_centers: npt.NDArray):
     # TODO: Convert to loading a specific savestate of chosen track one frame before countdown
