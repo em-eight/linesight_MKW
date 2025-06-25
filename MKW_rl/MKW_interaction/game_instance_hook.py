@@ -1,20 +1,24 @@
 from dolphin import event, gui, controller, savestate, memory # type: ignore
 # Note that the program runs from the main linesight folder
-from MKW_rl.MKW_interaction.MKW_interface import MKW_Interface
 import os
 import sys
 
-from mkw_scripts.Modules.mkw_classes import common
-sys.path.append(os.path.expanduser("~") + "\\AppData\\Local\\programs\\python\\python312\\lib\\site-packages")
+# TODO: add user config for python packages or just use virtual env for windows idk lol
+# either way this step is not required either on linux or in a virtual env.
+# sys.path.append(os.path.expanduser("~") + "\\AppData\\Local\\programs\\python\\python312\\lib\\site-packages")
+import time
 
 from multiprocessing.connection import Listener
 from config_files import config_copy
-import inspect
-source_file_path = inspect.getfile(inspect.currentframe())
 
+source_directory = os.getcwd()
+sys.path.append(source_directory)
+
+from MKW_rl.MKW_interaction.MKW_interface import MKW_Interface
 from MKW_rl.MKW_interaction.MKW_data_translate import *
+from mkw_scripts.Modules.mkw_classes import common
 from mkw_scripts.Modules.mkw_classes.race_manager import RaceState
-from mkw_scripts.Modules import mkw_config, mkw_utils, ttk_lib
+from mkw_scripts.Modules import mkw_config, mkw_utils
 
 HOST = "127.0.0.1" # config_copy.HOST
 
@@ -54,7 +58,7 @@ class GameInstanceHook():
             self.game_data_interface.initialize_race_objects()
             if self.game_data_interface.race_mgr.state() == RaceState.INTRO_CAMERA:
                 return
-        except Exception:
+        except Exception: # failed to initialize game data
             pass
         if self.restarting_race:
             if self.restarting_race_timer < 3:
@@ -221,14 +225,13 @@ class GameInstanceHook():
         controller.set_gc_buttons(0, self.desired_inputs)
 
     def register(self):
-        print("Initialize connection to Dolphin ")
+        print("Initialize connection from Dolphin")
 
         success = False
         fails = 0
         while not success:
             try:
-                self.listener = Listener((HOST, (self.port + (os.getpid() % (65535 - self.port))))) # Listener((HOST, self.port))
-                print("Game hook socket listening on port", (self.port + (os.getpid() % (65535 - self.port))))
+                self.listener = Listener((HOST, self.port))
                 self.conn = self.listener.accept()
                 success = True
             except Exception as e:
@@ -237,12 +240,8 @@ class GameInstanceHook():
                 if fails > 10:
                     print("Error connecting to program.")
                     success = True # just let the puppy crash lol
-        print("Connected accepted")
+        print("Connection accepted")
 
-# Use base tmi port in an attempt to find the right port lol
-mymanager = GameInstanceHook(config_copy.base_tmi_port) #  + len(get_dolphin_pids()) - 1
-print("Working from port", (mymanager.port + (os.getpid() % (65535 - mymanager.port))))
-print("Working in directory", source_file_path)
 """
 Register the socket, ensure it is connected
 when framedrawn_handler is called, we read from the socket, waiting if necessary.
@@ -256,8 +255,26 @@ Next, when frameadvance_handler is called
     3. Apply inputs to the game
 """
 
+print("Dolphin starting...")
+read_counter = 0
+connected = False
+while not connected:
+    try:
+        with open(str(config_copy.project_path) + "/dolphin_ports/pid_" + str(os.getpid())) as f:
+            connection_port = int(f.read())
+            print("working from port", config_copy.base_tmi_port + connection_port)
+            mymanager = GameInstanceHook(config_copy.base_tmi_port + connection_port)
+            connected = True
+    except Exception as e:
+        print(e)
+        read_counter += 1
+        if read_counter > 100:
+            raise
+        time.sleep(0.1)
+
 mymanager.register()
 
+print("Registered!")
 
 event.on_framedrawn(mymanager.framedrawn_handler)
 event.on_frameadvance(mymanager.frameadvance_handler)
