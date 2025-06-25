@@ -188,6 +188,8 @@ class GameManager:
             os.system("kill -9 " + str(self.dolphin_process_id))
         else:
             os.system(f"taskkill /PID {self.dolphin_process_id} /f")
+        # Remove the temporary port file
+        os.remove(config_copy.project_path / ("dolphin_ports/pid_" + str(self.dolphin_process_id)))
         while self.is_game_running(): # wait for process to fully close
             time.sleep(0)
 
