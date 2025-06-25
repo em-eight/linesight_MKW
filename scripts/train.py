@@ -75,6 +75,7 @@ np.random.seed(random_seed)
 def signal_handler(sig, frame): # receive command to kill game instances
     print("Received SIGINT signal. Killing all open Dolphin instances.")
     clear_tm_instances()
+    clear_port_files()
 
     for child in mp.active_children():
         child.kill()
@@ -89,6 +90,12 @@ def clear_tm_instances(): # stop all instances of the game
     else:
         os.system("taskkill /F /IM Dolphin.exe")
 
+def clear_port_files(): # Remove port files
+    # https://stackoverflow.com/questions/10377998/how-can-i-iterate-over-files-in-a-given-directory
+    for file in os.listdir("dolphin_ports"):
+        filename = os.fsdecode(file)
+        if filename.startswith("pid_"):
+            os.remove(config_copy.project_path / "dolphin_ports" / file)
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
@@ -112,9 +119,6 @@ if __name__ == "__main__":
     tprint("Linesight", font="tarty1")
     print("\n" * 2)
     print("Training is starting!")
-
-    if config_copy.is_linux:
-        os.system(f"chmod +x {config_copy.linux_launch_game_path}")
 
     # Prepare multi process utilities
     shared_steps = mp.Value(ctypes.c_int64)
