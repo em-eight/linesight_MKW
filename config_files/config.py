@@ -25,18 +25,18 @@ import numpy as np
 from config_files.inputs_list import *
 from config_files.user_config import *
 
-W_downsized = 153
+W_downsized = 156
 H_downsized = 114
 
-run_name = "rSGB_superhopping_minirace_3s"
+run_name = "LC_linux_test"
 running_speed = 80
 
 use_race_restart = False
 restart_race_command = "restart_race" # can use basically anything so long as it doesn't conflict with a savestate filename.
 
 LC_punish_line = 44650
-LC_punish_rate = 0
-Mushroom_point = 3.99
+LC_punish_rate = 5
+Mushroom_point = 4.63
 
 tm_engine_step_per_action = 1
 f_per_action = tm_engine_step_per_action
@@ -54,7 +54,7 @@ cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 240 #
 # No progress has been made recently
 cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 4 # 4s
 
-temporal_mini_race_duration_s = 3
+temporal_mini_race_duration_s = 6
 temporal_mini_race_duration_f = game_running_fps * temporal_mini_race_duration_s
 temporal_mini_race_duration_actions = temporal_mini_race_duration_f // f_per_action
 oversample_long_term_steps = 40
@@ -193,7 +193,7 @@ button_A_held_reward_per_s = button_A_held_reward_per_f * game_running_fps
 float_input_dim = 51 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
 
 float_hidden_dim = 256
-conv_head_output_dim = 5280
+conv_head_output_dim = 5632
 dense_hidden_dimension = 1024
 iqn_embedding_dimension = 64
 iqn_n = 8  # must be an even number because we sample tau symmetrically around 0.5
@@ -231,10 +231,10 @@ tensorboard_suffix_schedule = [
     (150_000_000 * global_schedule_speed, "_7"),
 ]
 gamma_schedule = [
-    # (0, 0.999),
-    # (1_500_000, 0.999),
-    # (2_500_000, 1),
-    (0, 0.993),
+    (0, 0.999),
+    (1_500_000, 0.999),
+    (2_500_000, 1),
+    # (0, 0.993),
 ]
 # Mini-race disable commit:
 # https://github.com/Linesight-RL/linesight/commit/c171384c086714f465a7f71949dd047e497875a8
@@ -395,10 +395,12 @@ map_cycle += [
     # repeat(("MG", "linesight_savestates\\MG_F_SS.sav", "MG.npy", False, True), 1),
     # repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", True, True), 4),
     # repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", False, True), 1),
-    repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", True, True), 4),
-    repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", False, True), 1),
-    repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", True, True), 4),
-    repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", False, True), 1),
-    repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", True, True), 4),
-    repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", False, True), 1),
+    # repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", True, True), 4),
+    # repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", False, True), 1),
+    # repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", True, True), 4),
+    # repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", False, True), 1),
+    # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", True, True), 4),
+    # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", False, True), 1),
+    repeat(("LC", "linesight_savestates/LC_F_Fr_linux.sav", "LC.npy", True, True), 4),
+    repeat(("LC", "linesight_savestates/LC_F_Fr_linux.sav", "LC.npy", False, True), 1),
 ]

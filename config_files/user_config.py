@@ -12,12 +12,12 @@ is_linux = platform in ["linux", "linux2"]
 
 # Path where Python_Link.as should be placed so that it can be loaded in TMInterface.
 # Usually Path(os.path.expanduser("~")) / "Documents" / "TMInterface" / "Plugins" / "Python_Link.as"
-# -Likely to be unused for this project
+# --Unused for this project
 target_python_link_path = Path(os.path.expanduser("~")) / "Documents" / "TMInterface" / "Plugins" / "Python_Link.as"
 
-project_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "MKW_linesight" / "linesight_MKW"
+project_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "Linesight" / "linesight_MKW"
 
-project_scripts_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "MKW_linesight" / "linesight_MKW" / "mkw_scripts"
+project_scripts_path = project_path / "mkw_scripts"
 
 # Directory that dolphin is working from ( contains the .exe on Windows)
 dolphin_base_path = Path(os.path.expanduser("~")) / "Programs" / "dolphin"
@@ -33,7 +33,7 @@ base_tmi_port = 8478
 windows_TMLoader_profile_name = "default"
 
 # Location of the MKW game file/folder (usually a .rvz or .iso)
-game_path = Path(os.path.expanduser("~")) / "Programs" / "MKWii" / "Mario_Kart_wii.rvz"
+game_path = Path(os.path.expanduser("~")) / "Programs" / "MKWii" / "Mario_Kart_Wii.rvz"
 
 # If on windows, path where the Dolphin exe can be found.
 # Usually Path(os.path.expanduser("~")) / "AppData" / "Local" / "TMLoader" / "TMLoader.exe"
