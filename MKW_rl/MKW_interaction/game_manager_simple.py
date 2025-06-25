@@ -19,17 +19,8 @@ import numpy as np
 import numpy.typing as npt
 import psutil
 
-# import warnings ignored for cross-platform neatness
-if config_copy.is_linux:
-    import Xdo # type: ignore
-else:
-    import win32.lib.win32con as win32con # type: ignore
-    import win32com.client # type: ignore
-    import win32gui # type: ignore
-    import win32process # type: ignore
-
 HOST = "127.0.0.1"
-FRAME_WIDTH = 611
+FRAME_WIDTH = 625
 FRAME_HEIGHT = 456
 
 # Assuming that this function will work unmodified despite changes to the magnitude of zone spacings
@@ -86,61 +77,14 @@ class GameManager:
         self.UI_disabled = False
         self.tmi_port = tmi_port
         self.dolphin_process_id = None
-        self.dolphin_window_id = None
         self.start_states = {} # oh hey I might want to use this for starting later on in the track
         self.game_spawning_lock = game_spawning_lock
         self.game_activated = False
         self.process_number = process_number
-    
-    def get_window_id(self):
-        assert self.dolphin_process_id is not None
-        if config_copy.is_linux:
-            self.dolphin_window_id = None
-            while self.dolphin_window_id == None:
-                window_search_depth = 1
-                while True:
-                    c1 = set(Xdo().search_windows(winname=b"Dolphin", max_depth=window_search_depth + 1))
-                    c2 = set(Xdo().search_windows(winname=b"Dolphin", max_depth=window_search_depth))
-                    c1 = {w_id for w_id in c1 if Xdo().get_pid_window(w_id) == self.dolphin_process_id}
-                    c2 = {w_id for w_id in c2 if Xdo().get_pid_window(w_id) == self.dolphin_process_id}
-                    c1_diff_c2 = c1.difference(c2)
-                    if len(c1_diff_c2) == 1:
-                        self.dolphin_window_id = c1_diff_c2.pop()
-                        break
-                    elif (
-                        len(c1_diff_c2) == 0 and len(c1) > 0
-                    ) or window_search_depth >= 10:  # 10 is an arbitrary cutoff in this search we do not fully understand
-                        print(
-                            "Warning: Worker could not find the window of the game it just launched, stopped at window_search_depth",
-                            window_search_depth,
-                        )
-                        break
-                    window_search_depth += 1
-        else:
-            def get_hwnds_for_pid(pid):
-                def callback(hwnd, hwnds):
-                    _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
-
-                    if found_pid == pid:
-                        hwnds.append(hwnd)
-                    return True
-
-                hwnds = []
-                win32gui.EnumWindows(callback, hwnds)
-                return hwnds
-
-            while True:
-                for hwnd in get_hwnds_for_pid(self.dolphin_process_id):
-                    if "Dolphin" in win32gui.GetWindowText(hwnd):
-                        self.dolphin_window_id = hwnd
-                        return
-                    # else:
-                    #     raise Exception("Could not find TmForever window id.")
 
     def register(self, timeout=None):
         # https://stackoverflow.com/questions/6920858/interprocess-communication-in-python
-        print(self.tmi_port + (self.dolphin_process_id % (65535 - self.tmi_port)))
-        self.sock = Client((HOST, (self.tmi_port + (self.dolphin_process_id % (65535 - self.tmi_port))))) # Client((HOST, self.tmi_port))
+        self.sock = Client((HOST, (self.tmi_port))) # Client((HOST, self.tmi_port))
         """# signal.signal(signal.SIGINT, self.signal_handler) # Handle close game signal
         # https://stackoverflow.com/questions/45864828/msg-waitall-combined-with-so-rcvtimeo
         # https://stackoverflow.com/questions/2719017/how-to-set-timeout-on-pythons-socket-recv-method
@@ -169,11 +113,12 @@ class GameManager:
         if config_copy.is_linux:
             self.game_spawning_lock.acquire()
             pid_before = self.get_dolphin_pids()
-            # dolphin.exe path --no python subinterpreters
-            os.system(str(user_config.dolphin_base_path) + str(user_config.linux_launch_game_path) + (f"{dolphin_process_number} --video_backend='{config_copy.video_backend}'"
-                       f"--config=Dolphin.Core.EmulationSpeed={config_copy.game_speed}"
-                       "--batch --script MKW_rl/MKW_interaction/game_instance_hook.py"
-                       f"--no-python-subinterpreters --exec='{config_copy.game_path}' + str(self.tmi_port))"))
+            launch_string = str(user_config.dolphin_base_path) + str(dolphin_process_number) + (f"{user_config.linux_launch_game_path}"
+                        f" --video_backend='{config_copy.video_backend}'"
+                        f" --config=Dolphin.Core.EmulationSpeed={config_copy.game_speed}"
+                        f" --batch --script 'MKW_rl/MKW_interaction/game_instance_hook.py'"
+                        f" --no-python-subinterpreters --exec='{config_copy.game_path}'")
+            os.system(launch_string + " &")
             while True:
                 pid_after = self.get_dolphin_pids()
                 dolphin_pid_candidates = set(pid_after) - set(pid_before)
@@ -181,6 +126,7 @@ class GameManager:
                     assert len(dolphin_pid_candidates) == 1
                     break
             self.dolphin_process_id = list(dolphin_pid_candidates)[0]
+            self.game_spawning_lock.release()
 
         else:
             # print("Dolphin process number assigned as:", dolphin_process_number, "Derived from received process number of", self.process_number)
@@ -188,7 +134,8 @@ class GameManager:
                 'powershell -executionPolicy bypass -command "& {'
                 f" $process = start-process -FilePath '{config_copy.dolphin_base_path}{dolphin_process_number}\\{config_copy.windows_dolphinexe_filename}'" # Launch .exe file
                 " -PassThru -ArgumentList " # Assign arguments for .exe
-                f'\'--video_backend="{config_copy.video_backend}" --config=Dolphin.Core.EmulationSpeed={config_copy.game_speed} --batch --script MKW_rl\\MKW_interaction\\game_instance_hook.py --no-python-subinterpreters --exec="{config_copy.game_path}"\';'
+                f'\'--video_backend="{config_copy.video_backend}" --config=Dolphin.Core.EmulationSpeed={config_copy.game_speed} --batch'
+                f' --script "MKW_rl\\MKW_interaction\\game_instance_hook.py" --no-python-subinterpreters --exec="{config_copy.game_path}"\';'
                 ' echo exit $process.id}"' # push process_id to stdout to read later
             )
             # --batch
@@ -211,21 +158,22 @@ class GameManager:
                         self.dolphin_process_id = process_id
                         break"""
 
-        print(f"Found Dolphin process id: {self.dolphin_process_id=}")
+        # print(f"Found Dolphin process id: {self.dolphin_process_id=}")
+        with open("dolphin_ports/pid_" + str(self.dolphin_process_id), "w") as f:
+            f.write(str(self.process_number))
         self.last_game_reboot = time.perf_counter() # set counter to know how old the process is
         self.latest_map_path_requested = -1
         self.msgtype_response_to_wakeup_TMI = None
         while not self.is_game_running(): # wait for the program to launch fully
             time.sleep(0)
 
-        self.get_window_id() # locate window ID for the process
-
     def is_game_running(self):
         return (self.dolphin_process_id is not None) and (self.dolphin_process_id in (p.pid for p in psutil.process_iter()))
 
     def is_dolphin_process(self, process: psutil.Process) -> bool:
         try:
-            return "Dolphin" in process.name()
+            # Dolphin.exe in windows and dolphin-emu on linux, hoo ray.
+            return "dolphin" in process.name() or "Dolphin" in process.name()
         except psutil.NoSuchProcess:
             return False
 
@@ -310,7 +258,7 @@ class GameManager:
 
         if (self.sock is None) or (not self.registered): # Game was not connected to the program
             assert self.msgtype_response_to_wakeup_TMI is None
-            print("Initialize connection to Dolphin from game_manager")
+            print("Initialize connection to Dolphin from game_manager using port number", (self.tmi_port))
             # self.iface = TMInterface(self.tmi_port) # reset the interface
 
             connection_attempts_start_time = time.perf_counter()
@@ -370,8 +318,7 @@ class GameManager:
             self.latest_map_path_requested = savestate_path # this seems backwards... TODO
         else:
             # Send signal to restart race manually instead of reloading savestate to save overhead
-            # Note that this may run into some serious issues regarding load times and reward functions
-            # These issues also will be hard to debug... oh joy. IDK if this is worth it xd
+            # Note that this doesn't actually save any time as loading a savestate is generally just as fast
             # print("Restarting manually")
             self.sock.send([False, False, computed_action, config_copy.restart_race_command])
         
@@ -392,7 +339,7 @@ class GameManager:
 
             if self.latest_map_path_requested != savestate_path:
                 # We have to load the savestate we want
-                # print("loading savestate")
+                print("loading savestate")
                 self.sock.send([False, False, computed_action, savestate_path])
                 self.latest_map_path_requested = savestate_path # this seems backwards... TODO
                 continue
