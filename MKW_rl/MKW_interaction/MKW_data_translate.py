@@ -604,7 +604,8 @@ def get_1d_state_floats(game_data, previous_actions_idx):
 
     return np.hstack(
         (
-            config_copy.temporal_mini_race_duration_actions / 2,
+            # config_copy.temporal_mini_race_duration_actions / 2,
+            0,
             np.array(
                 network_inputs.get_input_data()
             ),

@@ -3,10 +3,9 @@ This file attempts to make interfacing with the game easier by containing the im
 within directly callable functions in leiu of the instance manager program handling the static objects
 """
 
+from mkw_scripts.Modules import mkw_utils as mkw_utils
 from mkw_scripts.Modules.mkw_classes import vec3 as hookvec3
 from mkw_scripts.Modules.mkw_classes import quatf as hookquatf
-
-import mkw_scripts.Modules.mkw_utils as mkw_utils
 from mkw_scripts.Modules.mkw_classes import ExactTimer, Timer
 from mkw_scripts.Modules.mkw_classes import RaceManager, RaceManagerPlayer, RaceState
 from mkw_scripts.Modules.mkw_classes import RaceConfig, RaceConfigScenario, RaceConfigSettings
