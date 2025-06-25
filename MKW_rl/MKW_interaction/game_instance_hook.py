@@ -255,14 +255,12 @@ Next, when frameadvance_handler is called
     3. Apply inputs to the game
 """
 
-print("Dolphin starting...")
 read_counter = 0
 connected = False
 while not connected:
     try:
         with open(str(config_copy.project_path) + "/dolphin_ports/pid_" + str(os.getpid())) as f:
             connection_port = int(f.read())
-            print("working from port", config_copy.base_tmi_port + connection_port)
             mymanager = GameInstanceHook(config_copy.base_tmi_port + connection_port)
             connected = True
     except Exception as e:
@@ -273,8 +271,6 @@ while not connected:
         time.sleep(0.1)
 
 mymanager.register()
-
-print("Registered!")
 
 event.on_framedrawn(mymanager.framedrawn_handler)
 event.on_frameadvance(mymanager.frameadvance_handler)
