@@ -1,0 +1,1 @@
+This folder contains temporary files used to assign ports for communication between dolphin instances and collector processes.
