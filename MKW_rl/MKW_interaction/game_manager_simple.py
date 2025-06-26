@@ -289,26 +289,15 @@ class GameManager:
 
         # Insert values for the start of a race
         computed_action = None
-        give_up_signal_has_been_sent = False
-        this_rollout_has_seen_t_negative = False
         this_rollout_is_finished = False
         n_th_action_we_compute = 0
-        compute_action_asap = True
-        compute_action_asap_floats = True
-        frame_expected = False
-        map_change_requested_time = math.inf
 
-        last_known_simulation_state = None
         pc = time.perf_counter_ns() # performance counter
         pc5 = 0
         floats = None
 
         # distance_since_track_begin = 0.99 # Beginning lap completion percentage is usually about 0.999, depending on the track
-        last_progress_improvement = 0
         last_progress_improvement_f = 0
-
-        sim_state_car_gear_and_wheels = None
-
         game_data = None
         
         # Load the savestate if we have not done so (we are on the wrong map)
@@ -349,7 +338,6 @@ class GameManager:
             instrumentation__between_run_steps += pc2 - pc
             if (frames_processed % self.run_steps_per_action != 0):
                 self.sock.send([False, False, computed_action, None])
-                compute_action_asap_floats = True
                 frames_processed += 1
                 continue
             pc3 = time.perf_counter_ns()
@@ -409,9 +397,7 @@ class GameManager:
             ] - game_data["kart_data"]["position"]
             game_data["relative_zone_centers"] = state_zone_center_coordinates_in_car_reference_system.ravel().tolist()
 
-            if compute_action_asap_floats:
-                compute_action_asap_floats = False
-                floats = MKW_data_translate.get_1d_state_floats(game_data, rollout_results["actions"])
+            floats = MKW_data_translate.get_1d_state_floats(game_data, rollout_results["actions"])
                 # print("Floats generated:", len(floats))
             pc7 = time.perf_counter_ns()
             instrumentation__answer_action_step += pc7 - pc6
@@ -449,10 +435,6 @@ class GameManager:
             if not self.timeout_has_been_set:
                 # reset the ai for doing bad things for too long?
                 self.timeout_has_been_set = True
-            
-            if frames_processed == 0 and (savestate_path != self.latest_map_path_requested):
-                map_change_requested_time = frames_processed
-                give_up_signal_has_been_sent = True
 
             race_time_for_ratio = race_time + 4 # include starting countdown time
             # print(game_data["start_boost_charge"], " And race time is", race_time)
