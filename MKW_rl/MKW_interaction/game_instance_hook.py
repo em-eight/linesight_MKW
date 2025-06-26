@@ -34,7 +34,6 @@ class GameInstanceHook():
                 "TriggerRight": 0
             }
         self.last_desired_inputs = {}
-        self.current_unprocessed_frame = None
         self.resized = None
         self.frame_counter = 0
         self.red = 0xffff0000
@@ -50,6 +49,7 @@ class GameInstanceHook():
         self.restarting_race_timer = 0
         self.ghost_saved = False
         self.waiting_for_rkg = False
+        self.rkg_timer = 0
 
     def framedrawn_handler(self, width, height, data):
         if self.waiting_for_rkg:
@@ -112,11 +112,7 @@ class GameInstanceHook():
                     self.restarting_race = False
                     self.restarting_race_timer = 0
             return
-        
-        # Wait for data necessary to determine what we want to do
-        self.current_unprocessed_frame = (height, width, data)
 
-        # print("Now waiting for new request")
         # https://stackoverflow.com/questions/38412887/how-to-send-a-list-through-tcp-sockets-python
         socket_data = self.conn.recv()
         # print("Received:", socket_data)
@@ -153,7 +149,7 @@ class GameInstanceHook():
             return
 
         if frame_data_request:
-            self.conn.send_bytes(self.current_unprocessed_frame[2]) # unsure if i should pre-process frame or not...
+            self.conn.send_bytes(data)
 
             # width * height * 4, socket.MSG_WAITALL # server recv to receive frame data because it's big
 
@@ -195,7 +191,11 @@ class GameInstanceHook():
                 rkg_addr = mkw_utils.chase_pointer(address[region], [0x18], 'u32')
             except KeyError:
                 raise common.RegionError
-            if not memory.read_u32(rkg_addr) == 0x524b4744:
+            if not memory.read_u32(rkg_addr) == 0x524b4744: # Thank you Blounard for the hex number
+                self.rkg_timer += 1
+                if config_copy.game_running_fps * 7 < self.rkg_timer: # Failed to save ghost in 7 seconds
+                    self.ghost_saved = True
+                    self.waiting_for_rkg = False
                 return
             gui.add_osd_message("Saving ghost")
             fin_timer = self.game_data_interface.race_mgr_player.inst_race_finish_time()
@@ -211,6 +211,7 @@ class GameInstanceHook():
 
             self.ghost_saved = True
             self.waiting_for_rkg = False
+            self.rkg_timer = 0 # reset rkg_timer as we succeeded in saving the ghost
 
         if self.load_state_desired:
             self.load_state_desired = False
