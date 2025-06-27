@@ -196,6 +196,7 @@ class GameInstanceHook():
                 if config_copy.game_running_fps * 7 < self.rkg_timer: # Failed to save ghost in 7 seconds
                     self.ghost_saved = True
                     self.waiting_for_rkg = False
+                    self.rkg_timer = 0
                 return
             gui.add_osd_message("Saving ghost")
             fin_timer = self.game_data_interface.race_mgr_player.inst_race_finish_time()
