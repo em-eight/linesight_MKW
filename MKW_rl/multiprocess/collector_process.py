@@ -33,7 +33,7 @@ def collector_process_fn(
     mkw = game_manager_simple.GameManager(
         game_spawning_lock=game_spawning_lock,
         running_speed=config_copy.running_speed,
-        run_steps_per_action=config_copy.tm_engine_step_per_action,
+        run_steps_per_action=config_copy.f_per_action,
         max_overall_duration_f=config_copy.cutoff_rollout_if_race_not_finished_within_duration_f,
         max_minirace_duration_f=config_copy.cutoff_rollout_if_no_vcp_passed_within_duration_f,
         tmi_port=tmi_port,
