@@ -107,9 +107,9 @@ def fill_buffer_from_rollout_with_n_steps_rule(
             reward_into[i] += temp_completion_reward
             # reward_into_progress[i] += temp_completion_reward
             # reward based on external velocity
-            external_velocity_reward = config_copy.external_velocity_reward_per_f * math.sqrt(rollout_results["state_float"][i]["kart_data"]["external_velocity"][0]**2 + 
-                                                                               rollout_results["state_float"][i]["kart_data"]["external_velocity"][2]**2)
-            reward_into[i] += external_velocity_reward
+            # external_velocity_reward = config_copy.external_velocity_reward_per_f * math.sqrt(rollout_results["state_float"][i]["kart_data"]["external_velocity"][0]**2 + 
+                                                                               # rollout_results["state_float"][i]["kart_data"]["external_velocity"][2]**2)
+            # reward_into[i] += external_velocity_reward
             # reward_into_ev[i] += external_velocity_reward
 
             if i < n_frames - 1:
@@ -124,11 +124,11 @@ def fill_buffer_from_rollout_with_n_steps_rule(
         elif type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 1:
             completion_reward = (
                 rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1]
-            ) * config_copy.reward_per_m_advanced_along_centerline * 5 # Based on estimated time to lap completion
+            ) * config_copy.reward_per_m_advanced_along_centerline # Based on estimated time to lap completion
             reward_into[i] += completion_reward
             # reward_into_progress[i] += completion_reward
                 
-        if i < n_frames - 1: # apply these rewards even during countdown
+        if i < n_frames - 1: # apply these rewards unless this is the finish frame
             """if config_copy.final_speed_reward_per_f_per_s != 0:
                 # car is driving forward
                 reward_into[i] += config_copy.final_speed_reward_per_f_per_s * (
@@ -138,14 +138,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 reward_into[i] += engineered_button_A_pressed_reward
 
             if engineered_item_usage_reward != 0 and config_copy.inputs[rollout_results["actions"][i]]["TriggerLeft"] > 0:
-                reward_into[i] += engineered_item_usage_reward
-            # kamikaze reward
-            if (
-                engineered_kamikaze_reward != 0
-                and rollout_results["actions"][i] <= 2
-                or np.sum(rollout_results["state_float"][i][25:29]) <= 1
-            ):
-                reward_into[i] += engineered_kamikaze_reward"""
+                reward_into[i] += engineered_item_usage_reward"""
 
             if (engineered_start_boost_reward != 0
                 and rollout_results["state_float"][i]["race_data"]["state"] == 1): # only reward start boost during countdown
@@ -155,10 +148,11 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 else:
                     reward_into[i] += -engineered_start_boost_reward if rollout_results["state_float"][i]["start_boost_charge"] <= 0.925 else 0
 
-    """print("Rewards for progress:", np.sum(reward_into_progress))
-    print("Constant reward:", np.sum(reward_into_constant))
-    print("Rewards for EV:", np.sum(reward_into_ev))
-    print("Total:", np.sum(reward_into))"""
+    # print("Rewards for progress:", np.sum(reward_into_progress))
+    # print("Constant reward:", np.sum(reward_into_constant))
+    # print("Rewards for EV:", np.sum(reward_into_ev))
+    # print("Total:", np.sum(reward_into))
+    # print("Seconds run:", n_frames / (config_copy.game_running_fps / config_copy.f_per_action))
 
     for i in range(n_frames - 1):  # Loop over all frames that were generated
         # Switch memory buffer sometimes
@@ -214,13 +208,15 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 terminal_actions,
             )
         )
-    # print("Sum of rewards for this rollout:", sum(reward_into))
+
     number_memories_added_train += len(Experiences_For_Buffer)
     if len(Experiences_For_Buffer) > 1:
         buffer.extend(Experiences_For_Buffer)
     elif len(Experiences_For_Buffer) == 1:
         buffer.add(Experiences_For_Buffer[0])
+
     number_memories_added_test += len(Experiences_For_Buffer_Test)
+
     if len(Experiences_For_Buffer_Test) > 1:
         buffer_test.extend(Experiences_For_Buffer_Test)
     elif len(Experiences_For_Buffer_Test) == 1:
