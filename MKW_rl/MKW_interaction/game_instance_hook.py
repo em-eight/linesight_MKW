@@ -8,7 +8,9 @@ import sys
 # sys.path.append(os.path.expanduser("~") + "\\AppData\\Local\\programs\\python\\python312\\lib\\site-packages")
 import time
 
-from multiprocessing.connection import Listener
+import socket
+import signal
+import pickle
 from config_files import config_copy
 
 source_directory = os.getcwd()
@@ -113,9 +115,7 @@ class GameInstanceHook():
                     self.restarting_race_timer = 0
             return
 
-        # https://stackoverflow.com/questions/38412887/how-to-send-a-list-through-tcp-sockets-python
-        socket_data = self.conn.recv()
-        # print("Received:", socket_data)
+        socket_data = pickle.loads(self.conn.recv(256))
 
         frame_data_request = socket_data[0]
         game_data_request = socket_data[1]
@@ -125,7 +125,7 @@ class GameInstanceHook():
         if new_inputs is not None:
             self.desired_inputs = new_inputs
 
-        if load_state_request is not None:
+        if len(load_state_request) > 0:
             # Funky way of avoiding loading a savestate for every rollout (bad for performance, I think)
             if socket_data[3] == config_copy.restart_race_command:
                 self.restarting_race = True
@@ -149,17 +149,8 @@ class GameInstanceHook():
             return
 
         if frame_data_request:
-            self.conn.send_bytes(data)
-
-            # width * height * 4, socket.MSG_WAITALL # server recv to receive frame data because it's big
-
-            """# The following line brought to you by literal hours of trying to figure things out only to realize I just needed two functions that I could've just copied from the original code
-            processed_frame = numpy.frombuffer(self.current_unprocessed_frame[2], dtype = numpy.uint8).reshape((self.current_unprocessed_frame[0], self.current_unprocessed_frame[1], 3))
-            # https://stackoverflow.com/questions/48121916/numpy-resize-rescale-image
-            resized_frame = processed_frame[::6,::6]
-            resized_frame = numpy.expand_dims(cv2.cvtColor(resized_frame, cv2.COLOR_BGRA2GRAY), 0) # took me like 80 minutes to get to the solution that was already present in the original code
-            # frame is a numpy array of shape (1, H, W) and dtype np.uint8
-            print(processed_frame.shape, ":", resized_frame.shape)"""
+            self.conn.sendall(data)
+            self.conn.recv(128)
         
         if game_data_request and self.desired_savestate is not None:
             if not self.game_data_initiated:
@@ -171,11 +162,12 @@ class GameInstanceHook():
                 value = game_data["kart_data"][key]
                 if type(value) == vec3:
                     game_data["kart_data"][key] = [value.x, value.y, value.z]
-            self.conn.send(game_data)
+            self.conn.sendall(pickle.dumps(game_data))
             self.last_game_data = game_data
         elif game_data_request:
             print("ERROR: game_data_request was sent before race state was loaded")
-        # send the image data here, so we can set desired_inputs before we exit the function
+        else:
+            self.conn.sendall("nothing happened".encode()) # frame skipped.
             
     def frameadvance_handler(self):
         self.frame_counter += 1
@@ -193,7 +185,7 @@ class GameInstanceHook():
                 raise common.RegionError
             if not memory.read_u32(rkg_addr) == 0x524b4744: # Thank you Blounard for the hex number
                 self.rkg_timer += 1
-                if config_copy.game_running_fps * 7 < self.rkg_timer: # Failed to save ghost in 7 seconds
+                if 60 * 4 < self.rkg_timer: # Failed to save ghost in 4 seconds
                     self.ghost_saved = True
                     self.waiting_for_rkg = False
                     self.rkg_timer = 0
@@ -218,8 +210,15 @@ class GameInstanceHook():
             self.load_state_desired = False
             if self.desired_savestate.startswith("__slot__"):
                 savestate.load_from_slot(int(self.desired_savestate[8:]))
+                self.conn.sendall("state_loaded".encode()) # maintain baton-passing of send and recv calls
             else:
                 savestate.load_from_file(self.desired_savestate)
+                self.conn.sendall("state_loaded".encode()) # maintain baton-passing of send and recv calls
+                """
+                If multiple sends occur on one side of the connection before the other side has called a recv,
+                both programs will hang waiting in a recv as the following send calls are lost in the buffer somehow.
+                Rather than trying to understand that, we always alternate sending and receiving on both sides.
+                """
             self.game_data_initiated = False
             self.ghost_saved = False
             # print("Loaded new savestate:", self.desired_savestate)
@@ -233,8 +232,11 @@ class GameInstanceHook():
         fails = 0
         while not success:
             try:
-                self.listener = Listener((HOST, self.port))
-                self.conn = self.listener.accept()
+                self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.listener.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                self.listener.bind((HOST, self.port))
+                self.listener.listen(1)
+                self.conn, _ = self.listener.accept()
                 success = True
             except Exception as e:
                 print(e)
@@ -243,6 +245,9 @@ class GameInstanceHook():
                     print("Error connecting to program.")
                     success = True # just let the puppy crash lol
         print("Connection accepted")
+
+    def close(self):
+        self.listener.close()
 
 """
 Register the socket, ensure it is connected

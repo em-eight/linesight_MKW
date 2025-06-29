@@ -1,14 +1,13 @@
-from multiprocessing import process
 from MKW_rl.MKW_interaction import MKW_data_translate
 from config_files import config_copy, user_config
 
 import math
 import os
-from multiprocessing.connection import Client
+import socket
 import subprocess
 import time
 from typing import Callable, Dict, List
-import flatdict
+import pickle
 
 from MKW_rl.MKW_interaction.MKW_data_translate import *
 from MKW_rl import map_loader
@@ -84,7 +83,9 @@ class GameManager:
 
     def register(self, timeout=None):
         # https://stackoverflow.com/questions/6920858/interprocess-communication-in-python
-        self.sock = Client((HOST, (self.tmi_port))) # Client((HOST, self.tmi_port))
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.sock.connect((HOST, self.tmi_port))
         """# signal.signal(signal.SIGINT, self.signal_handler) # Handle close game signal
         # https://stackoverflow.com/questions/45864828/msg-waitall-combined-with-so-rcvtimeo
         # https://stackoverflow.com/questions/2719017/how-to-set-timeout-on-pythons-socket-recv-method
@@ -118,7 +119,7 @@ class GameManager:
                         f" --config=Dolphin.Core.EmulationSpeed={config_copy.game_speed}"
                         f" --batch --script 'MKW_rl/MKW_interaction/game_instance_hook.py'"
                         f" --no-python-subinterpreters --exec='{config_copy.game_path}'")
-            os.system(launch_string + " &")
+            os.system(launch_string + " &") # continue execution after launching game
             while True:
                 pid_after = self.get_dolphin_pids()
                 dolphin_pid_candidates = set(pid_after) - set(pid_before)
@@ -142,21 +143,6 @@ class GameManager:
             # print(launch_string)
             
             self.dolphin_process_id = int(subprocess.check_output(launch_string).decode().split("\r\n")[1]) # locate the pid from the program
-            # We do not need the parent of returned process id for this fork
-            """while self.dolphin_process_id is None:
-                dolphin_processes = list(
-                    filter(
-                        lambda s: s.startswith("Dolphin"), # confirm this is a Dolphin process
-                        subprocess.check_output("wmic process get Caption,ParentProcessId,ProcessId").decode().split("\r\n"),
-                    )
-                ) # create a list of Dolphin processes by filtering out unmatching ones and checking their output
-                for process in dolphin_processes:
-                    name, parent_id, process_id = process.split() # extract information from process
-                    parent_id = int(parent_id)
-                    process_id = int(process_id)
-                    if parent_id == dolphin_process_id: # confirm we have our Dolphin process and assign it
-                        self.dolphin_process_id = process_id
-                        break"""
 
         # print(f"Found Dolphin process id: {self.dolphin_process_id=}")
         with open("dolphin_ports/pid_" + str(self.dolphin_process_id), "w") as f:
@@ -190,6 +176,8 @@ class GameManager:
             os.system(f"taskkill /PID {self.dolphin_process_id} /f")
         # Remove the temporary port file
         os.remove(config_copy.project_path / ("dolphin_ports/pid_" + str(self.dolphin_process_id)))
+        self.sock.close()
+        self.registered = False
         while self.is_game_running(): # wait for process to fully close
             time.sleep(0)
 
@@ -288,7 +276,7 @@ class GameManager:
         current_zone_idx = 0
 
         # Insert values for the start of a race
-        computed_action = None
+        computed_action = {}
         this_rollout_is_finished = False
         n_th_action_we_compute = 0
 
@@ -304,18 +292,16 @@ class GameManager:
         # print("loading savestate")
         if (self.latest_map_path_requested != savestate_path or last_loop_finished) or not config_copy.use_race_restart:
             # We have to load the savestate we want
-            # print("Loading savestate")
-            self.sock.send([False, False, computed_action, savestate_path])
+            print("Loading savestate")
+            self.sock.sendall(pickle.dumps([False, False, computed_action, savestate_path]))
+            self.sock.recv(128) # wait for dolphin to load the state before requesting actions
             self.latest_map_path_requested = savestate_path # this seems backwards... TODO
         else:
             # Send signal to restart race manually instead of reloading savestate to save overhead
             # Note that this doesn't actually save any time as loading a savestate is generally just as fast
             # print("Restarting manually")
-            self.sock.send([False, False, computed_action, config_copy.restart_race_command])
-        
-        
-        # self.sock.send([False, False, computed_action, savestate_path])
-        # self.latest_map_path_requested = savestate_path # this seems backwards... TODO
+            self.sock.sendall(pickle.dumps([False, False, computed_action, config_copy.restart_race_command]))
+            self.sock.recv(128) # wait for dolphin to load the state before requesting actions
 
         manual_item_count = 3
         while not this_rollout_is_finished:
@@ -327,27 +313,38 @@ class GameManager:
             4. Send inputs received from exploration policy to the game
             5. update the network
             """
+            frames_processed += 1
 
             if self.latest_map_path_requested != savestate_path:
                 # We have to load the savestate we want
                 print("loading savestate")
-                self.sock.send([False, False, computed_action, savestate_path])
+                self.sock.sendall(pickle.dumps([False, False, computed_action, savestate_path]))
+                self.sock.recv(128) # wait for dolphin to load the state before requesting actions
                 self.latest_map_path_requested = savestate_path # this seems backwards... TODO
+                continue
+            if (frames_processed % self.run_steps_per_action != 0):
+                self.sock.sendall(pickle.dumps([False, False, computed_action, ""]))
+                self.sock.recv(128)
                 continue
             pc2 = time.perf_counter_ns()
             instrumentation__between_run_steps += pc2 - pc
-            if (frames_processed % self.run_steps_per_action != 0):
-                self.sock.send([False, False, computed_action, None])
-                frames_processed += 1
-                continue
+
             pc3 = time.perf_counter_ns()
-            
-            self.sock.send([True, True, computed_action, None])
+            self.sock.sendall(pickle.dumps([True, True, computed_action, ""]))
             # The following line brought to you by literal hours of trying to figure things out only to realize I just needed two functions that I could've just copied from the original code
-            frame_data = np.frombuffer(self.sock.recv_bytes(FRAME_WIDTH * FRAME_HEIGHT * 3), dtype = np.uint8).reshape((FRAME_HEIGHT, FRAME_WIDTH, 3))
+            # TODO: ADD LOOP TO RECEIVE ALL FRAME DATA WHOOPIEEEEE
+            raw_frame_data = bytearray()
+            data_length = FRAME_WIDTH * FRAME_HEIGHT * 3
+            while len(raw_frame_data) < data_length:
+                packet = self.sock.recv(data_length - len(raw_frame_data))
+                if not packet:
+                    print("Error receiving frame data")
+                    break
+                raw_frame_data.extend(packet)
+            frame_data = np.frombuffer(raw_frame_data, dtype = np.uint8).reshape((FRAME_HEIGHT, FRAME_WIDTH, 3))
+            self.sock.sendall("frame_read".encode()) # maintain baton-passing
             pc4 = time.perf_counter_ns()
             instrumentation__grab_frame += pc4 - pc3
-            frames_processed += 1
             # https://stackoverflow.com/questions/48121916/numpy-resize-rescale-image
             resized_frame = frame_data[::4,::4]
             """if frame_counter % 240 == 0:
@@ -357,7 +354,7 @@ class GameManager:
             # frame is a numpy array of shape (1, H, W) and dtype np.uint8
             pc5 = time.perf_counter_ns()
             instrumentation__convert_frame += pc5 - pc4
-            game_data = self.sock.recv()
+            game_data = pickle.loads(self.sock.recv(65535))
             if game_data["race_data"]["state"] == 0:
                 # Race has not started, so skip frames until we enter countdown
                 print("ERROR: Attempted to process intro camera state during rollout")
