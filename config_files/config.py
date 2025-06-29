@@ -28,19 +28,18 @@ from config_files.user_config import *
 W_downsized = 156
 H_downsized = 114
 
-run_name = "LC_linux_test"
+run_name = "LC_linux_test5"
 running_speed = 80
 
 use_race_restart = False
 restart_race_command = "restart_race" # can use basically anything so long as it doesn't conflict with a savestate filename.
 
-LC_punish_line = 44650
+LC_punish_line = 44700
 LC_punish_rate = 5
-Mushroom_point = 4.63
+Mushroom_point = 4.65
 
-tm_engine_step_per_action = 1
-f_per_action = tm_engine_step_per_action
-game_running_fps = 60
+f_per_action = 2
+game_running_fps = 30
 n_zone_centers_in_inputs = 40
 one_every_n_zone_centers_in_inputs = 5
 n_zone_centers_extrapolate_after_end_of_map = 500
@@ -54,6 +53,7 @@ cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 240 #
 # No progress has been made recently
 cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 4 # 4s
 
+use_miniraces = True
 temporal_mini_race_duration_s = 6
 temporal_mini_race_duration_f = game_running_fps * temporal_mini_race_duration_s
 temporal_mini_race_duration_actions = temporal_mini_race_duration_f // f_per_action
@@ -65,7 +65,7 @@ margin_to_announce_finish_meters = 700
 
 global_schedule_speed = 1.5
 
-constant_reward_per_action = -5 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
+constant_reward_per_action = -2 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
 
 epsilon_schedule = [
     (0, 1),
@@ -234,7 +234,8 @@ gamma_schedule = [
     (0, 0.999),
     (1_500_000, 0.999),
     (2_500_000, 1),
-    # (0, 0.993),
+] if use_miniraces else [
+    (0, 0.993),
 ]
 # Mini-race disable commit:
 # https://github.com/Linesight-RL/linesight/commit/c171384c086714f465a7f71949dd047e497875a8
