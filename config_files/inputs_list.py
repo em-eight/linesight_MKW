@@ -123,128 +123,6 @@ inputs = [
         "StickY": 0,
         "TriggerLeft": 0,
     },
-    {  # 3 Drift slight left (-1)
-        "A": True,
-        "StickX": -0.156,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
-    {  # 4 Drift slight right (1)
-        "A": True,
-        "StickX": 0.22,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
-    {  # 5 Drift straight
-        "A": True,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickX": 0,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
-    {  # 6 Drift full right item # Adjust for individual tracks based on item usage
-        "StickX": 1,
-        "A": True,
-        "TriggerRight": 1,
-        "TriggerLeft": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-    },
-    {  # 7 Full left
-        "StickX": -1,
-        "A": True,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 8 Full right
-        "StickX": 1,
-        "A": True,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 9 Trick full right
-        "Up": True,
-        "A": True,
-        "B": False,
-        "StickX": 1,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 10 Trick straight
-        "Up": True,
-        "A": True,
-        "B": False,
-        "StickX": 0,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 11 Trick full left
-        "StickX": -1,
-        "Up": True,
-        "A": True,
-        "B": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 12 No accel full left (Start boost/start slide) # 
-        "A": False,
-        "B": False,
-        "Up": False,
-        "StickX": -1,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-]
-
-"""
-# Adjust for individual tracks for item usage or other things
-inputs = [
-    {  # 0 Forward
-        "A": True,
-        "B": False,
-        "Up": False,
-        "StickX": 0,
-        "StickY": 1,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 1 Drift full left
-        "A": True,
-        "StickX": -1,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
-    {  # 2 Drift full right
-        "StickX": 1,
-        "A": True,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
     {  # 3 Drift slight left
         "A": True,
         "StickX": -0.29,
@@ -331,6 +209,128 @@ inputs = [
         "B": False,
         "Up": False,
         "StickX": 1,
+        "StickY": 0,
+        "TriggerLeft": 0,
+        "TriggerRight": 0
+    },
+]
+
+"""
+# Adjust for individual tracks for item usage or other things
+inputs = [
+    {  # 0 Forward
+        "A": True,
+        "B": False,
+        "Up": False,
+        "StickX": 0,
+        "StickY": 1,
+        "TriggerLeft": 0,
+        "TriggerRight": 0
+    },
+    {  # 1 Drift full left
+        "A": True,
+        "StickX": -1,
+        "TriggerRight": 1,
+        "B": False,
+        "Up": False,
+        "StickY": 0,
+        "TriggerLeft": 0,
+    },
+    {  # 2 Drift full right
+        "StickX": 1,
+        "A": True,
+        "TriggerRight": 1,
+        "B": False,
+        "Up": False,
+        "StickY": 0,
+        "TriggerLeft": 0,
+    },
+    {  # 3 Drift slight left (-1)
+        "A": True,
+        "StickX": -0.156,
+        "TriggerRight": 1,
+        "B": False,
+        "Up": False,
+        "StickY": 0,
+        "TriggerLeft": 0,
+    },
+    {  # 4 Drift slight right (1)
+        "A": True,
+        "StickX": 0.22,
+        "TriggerRight": 1,
+        "B": False,
+        "Up": False,
+        "StickY": 0,
+        "TriggerLeft": 0,
+    },
+    {  # 5 Drift straight
+        "A": True,
+        "TriggerRight": 1,
+        "B": False,
+        "Up": False,
+        "StickX": 0,
+        "StickY": 0,
+        "TriggerLeft": 0,
+    },
+    {  # 6 Drift full right item # Adjust for individual tracks based on item usage
+        "StickX": 1,
+        "A": True,
+        "TriggerRight": 1,
+        "TriggerLeft": 1,
+        "B": False,
+        "Up": False,
+        "StickY": 0,
+    },
+    {  # 7 Full left
+        "StickX": -1,
+        "A": True,
+        "B": False,
+        "Up": False,
+        "StickY": 0,
+        "TriggerLeft": 0,
+        "TriggerRight": 0
+    },
+    {  # 8 Full right
+        "StickX": 1,
+        "A": True,
+        "B": False,
+        "Up": False,
+        "StickY": 0,
+        "TriggerLeft": 0,
+        "TriggerRight": 0
+    },
+    {  # 9 Trick full right
+        "Up": True,
+        "A": True,
+        "B": False,
+        "StickX": 1,
+        "StickY": 0,
+        "TriggerLeft": 0,
+        "TriggerRight": 0
+    },
+    {  # 10 Trick straight
+        "Up": True,
+        "A": True,
+        "B": False,
+        "StickX": 0,
+        "StickY": 0,
+        "TriggerLeft": 0,
+        "TriggerRight": 0
+    },
+    {  # 11 Trick full left
+        "StickX": -1,
+        "Up": True,
+        "A": True,
+        "B": False,
+        "StickY": 0,
+        "TriggerLeft": 0,
+        "TriggerRight": 0
+    },
+    {  # 12 No accel full left (Start boost/start slide) # 
+        "A": False,
+        "B": False,
+        "Up": False,
+        "StickX": -1,
         "StickY": 0,
         "TriggerLeft": 0,
         "TriggerRight": 0
