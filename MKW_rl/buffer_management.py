@@ -83,18 +83,9 @@ def fill_buffer_from_rollout_with_n_steps_rule(
             if (i < n_frames - 1 or ("race_time" not in rollout_results)) # We haven't generated any frames, or the race has not started
             else rollout_results["race_time"] - (n_frames - 2) * config_copy.f_per_action
         )"""
-        if type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 2: # Only apply these rewards during the actual race (Not race finished, not during countdown timer)
+        if type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 2: # Apply these rewards during the race (Not race finished, not during countdown timer)
             reward_into[i] += config_copy.constant_reward_per_action
             # reward_into_constant[i] += config_copy.constant_reward_per_action
-            temp_completion_reward = (
-                rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1] # meters progressed (negative if backwards)
-            ) * config_copy.reward_per_m_advanced_along_centerline # Based on estimated time to lap completion
-
-            # discourage mushroom usage according to speed increase for the duration of the boost
-            # 83 > 120 = 40 speed increase. 1/3rd of progression. so, discount roughly 40% (?) of progression
-            if (rollout_results["state_float"][i]["boost_data"]["shroom_boost"] > 60
-                and temp_completion_reward > 0):
-                temp_completion_reward = 0 # 0.6 (40% discount for speed increase) divided by 30/90 as we can't confirm source of boost outside that range
 
             if rollout_results["state_float"][i]["race_data"]["item_count"] < rollout_results["state_float"][i - 1]["race_data"]["item_count"]:
                 # used item punish
@@ -103,14 +94,6 @@ def fill_buffer_from_rollout_with_n_steps_rule(
             # LUIGI CIRCUIT FORCE SHORTCUT
             if rollout_results["state_float"][i]["kart_data"]["position"][2] > config_copy.LC_punish_line:
                 reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate # TODO: Set this value in the map cycle?
-            
-            reward_into[i] += temp_completion_reward
-            # reward_into_progress[i] += temp_completion_reward
-            # reward based on external velocity
-            # external_velocity_reward = config_copy.external_velocity_reward_per_f * math.sqrt(rollout_results["state_float"][i]["kart_data"]["external_velocity"][0]**2 + 
-                                                                               # rollout_results["state_float"][i]["kart_data"]["external_velocity"][2]**2)
-            # reward_into[i] += external_velocity_reward
-            # reward_into_ev[i] += external_velocity_reward
 
             if i < n_frames - 1:
                 if engineered_close_to_vcp_reward != 0:
@@ -120,13 +103,6 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                         [config_copy.engineered_reward_min_dist_to_cur_vcp, config_copy.engineered_reward_max_dist_to_cur_vcp],
                         [0.5, -1]
                     ) # normalizing to 1, -1 using np.interp so when we multiply by engineered reward we are reasonable
-
-        elif type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 1:
-            completion_reward = (
-                rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1]
-            ) * config_copy.reward_per_m_advanced_along_centerline # Based on estimated time to lap completion
-            reward_into[i] += completion_reward
-            # reward_into_progress[i] += completion_reward
                 
         if i < n_frames - 1: # apply these rewards unless this is the finish frame
             """if config_copy.final_speed_reward_per_f_per_s != 0:
@@ -139,6 +115,36 @@ def fill_buffer_from_rollout_with_n_steps_rule(
 
             if engineered_item_usage_reward != 0 and config_copy.inputs[rollout_results["actions"][i]]["TriggerLeft"] > 0:
                 reward_into[i] += engineered_item_usage_reward"""
+            if type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 2: # Only apply these rewards during the actual race (Not race finished, not during countdown timer)
+
+                temp_completion_reward = (
+                    rollout_results["current_zone_idx"][i] - rollout_results["current_zone_idx"][i - 1]
+                ) * config_copy.reward_per_vcp_passed
+
+                # temp_completion_reward = (
+                #     rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1] # meters progressed (negative if backwards)
+                # ) * config_copy.reward_per_m_advanced_along_centerline # Based on estimated time to lap completion
+
+                # discourage mushroom usage according to speed increase for the duration of the boost
+                # 83 > 120 = 40 speed increase. 1/3rd of progression. so, discount roughly 40% (?) of progression
+                if (rollout_results["state_float"][i]["boost_data"]["shroom_boost"] > 60
+                    and temp_completion_reward > 0):
+                    temp_completion_reward = 0 # 0.6 (40% discount for speed increase) divided by 30/90 as we can't confirm source of boost outside that range
+            
+                reward_into[i] += temp_completion_reward
+                # reward_into_progress[i] += temp_completion_reward
+                # reward based on external velocity
+                # external_velocity_reward = config_copy.external_velocity_reward_per_f * math.sqrt(rollout_results["state_float"][i]["kart_data"]["external_velocity"][0]**2 + 
+                                                                                # rollout_results["state_float"][i]["kart_data"]["external_velocity"][2]**2)
+                # reward_into[i] += external_velocity_reward
+                # reward_into_ev[i] += external_velocity_reward
+            elif type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 1:
+                # continue using race completion for countdown reward as VCPs are too sparse to encourage moving forward
+                completion_reward = (
+                    rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1]
+                ) * config_copy.reward_per_m_advanced_along_centerline # Based on estimated time to lap completion
+                reward_into[i] += completion_reward
+                # reward_into_progress[i] += completion_reward
 
             if (engineered_start_boost_reward != 0
                 and rollout_results["state_float"][i]["race_data"]["state"] == 1): # only reward start boost during countdown

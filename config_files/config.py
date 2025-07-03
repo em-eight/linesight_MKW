@@ -7,6 +7,7 @@ Two files named "config.py" and "config_copy.py" coexist in the same folder.
 At the beginning of training, parameters are copied from config.py to config_copy.py
 During training, config_copy.py will be reloaded at regular time intervals.
 config_copy.py is NOT tracked in git, as it is essentially a temporary file.
+You must manually copy config.py into config_copy.py to apply changes mid-training
 
 Training parameters modifications made during training in config_copy.py will be applied on the fly
 without losing the existing content of the replay buffer.
@@ -16,8 +17,6 @@ This setup provides the possibility to:
 1) Modify training parameters on the fly
 2) Continue to code, use git, and modify config.py without impacting an ongoing run.
 
-This file is preconfigured with sensible hyperparameters for the map ESL-Hockolicious, assuming the user
-has a computer with 16GB RAM.
 """
 from itertools import repeat
 import numpy as np
@@ -25,18 +24,21 @@ import numpy as np
 from config_files.inputs_list import *
 from config_files.user_config import *
 
-W_downsized = 156
+W_downsized = 153
 H_downsized = 114
 
-run_name = "LC_linux_test5"
+run_name = "rBC_VCP_rewards"
 running_speed = 80
 
 use_race_restart = False
 restart_race_command = "restart_race" # can use basically anything so long as it doesn't conflict with a savestate filename.
 
 LC_punish_line = 44700
-LC_punish_rate = 5
-Mushroom_point = 4.65
+LC_punish_rate = 0
+Mushroom_point = 4.17
+
+# mushroom points for each track (because these are annoying to collect)
+all_mushroom_points = {"LC": 4.65, "rBC":4.17}
 
 f_per_action = 2
 game_running_fps = 30
@@ -49,9 +51,9 @@ n_prev_actions_in_inputs = 5
 
 n_contact_material_physics_behavior_types = 4  # See contact_materials.py
 # race not completed in time
-cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 240 # in seconds
+cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 300 # in seconds
 # No progress has been made recently
-cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 4 # 4s
+cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 8 # in seconds
 
 use_miniraces = True
 temporal_mini_race_duration_s = 6
@@ -157,7 +159,7 @@ n_steps = 3
 
 # -4 / time_per_lap * lap_count * actions_per_second
 # TODO: Mark this value for individual tracks
-expected_lap_duration_s = 25 # TODO: Set this value in the map cycle
+expected_lap_duration_s = 55 # TODO: Set this value in the map cycle
 
 expected_lap_duration_per_action = expected_lap_duration_s * (game_running_fps / f_per_action) # at 60 fps
 average_lap_increment_per_action = 1 / expected_lap_duration_per_action
@@ -170,6 +172,14 @@ total_second_increment_expected = 3 / (expected_lap_duration_s * 3 / temporal_mi
 # distance_we_should_progress_ratio (4)
 
 reward_per_m_advanced_along_centerline = 4 / total_second_increment_expected
+
+# Expected average speed of 100 units per frame (u/f)
+# VCP distance of 300 units, normalized by vcp generation code ( Thank you pb4 & Agade :) )
+# 60fps (internal, unaffected by game_running_speed)
+# 6000 u/s for doing well, 6000/300 = 20 VCPs per s (Note that VCPs are not on the optimal lines, thus effective speed is higher than 100u/f)
+expected_vcp_passed_per_s = 20
+# +4 reward over the course of a minirace for driving well (passing VCPs)
+reward_per_vcp_passed = 4 / (expected_vcp_passed_per_s * temporal_mini_race_duration_s)
 
 # Reward functions for standard progression along the track
 final_speed_reward_as_if_duration_s = 0.00002 # times speed (80) times reward_per_m (1000) = 
@@ -193,7 +203,7 @@ button_A_held_reward_per_s = button_A_held_reward_per_f * game_running_fps
 float_input_dim = 51 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
 
 float_hidden_dim = 256
-conv_head_output_dim = 5632
+conv_head_output_dim = 5280
 dense_hidden_dimension = 1024
 iqn_embedding_dimension = 64
 iqn_n = 8  # must be an even number because we sample tau symmetrically around 0.5
@@ -230,6 +240,7 @@ tensorboard_suffix_schedule = [
     (80_000_000 * global_schedule_speed, "_6"),
     (150_000_000 * global_schedule_speed, "_7"),
 ]
+# Weight of future reward scaling (1 = optimize returns, 0 = optimize immediate reward)
 gamma_schedule = [
     (0, 0.999),
     (1_500_000, 0.999),
@@ -291,7 +302,7 @@ use_jit = True
 # Note that each additional instance requires a separate folder containing a full Dolphin installation, and should be named sequentially.
 # (Dolphin's game save files cannot be shared between instances)
 # For instance, if the original install is called 'dolphin_folder', installations 2 and 3 should be named 'dolphin_folder2' and 'dolphin_folder3'.
-gpu_collectors_count = 4
+gpu_collectors_count = 6
 
 # Every n batches, each collection process updates it's network to match the current Online Network as defined by DQN
 send_shared_network_every_n_batches = 10
@@ -402,6 +413,10 @@ map_cycle += [
     # repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", False, True), 1),
     # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", True, True), 4),
     # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", False, True), 1),
-    repeat(("LC", "linesight_savestates/LC_F_Fr_linux.sav", "LC.npy", True, True), 4),
-    repeat(("LC", "linesight_savestates/LC_F_Fr_linux.sav", "LC.npy", False, True), 1),
+    # repeat(("LC", "linesight_savestates/LC_F_Fr_linux.sav", "LC.npy", True, True), 4),
+    # repeat(("LC", "linesight_savestates/LC_F_Fr_linux.sav", "LC.npy", False, True), 1),
+    repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", True, True), 4),
+    repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", False, True), 1),
+    repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", True, True), 4),
+    repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", False, True), 1),
 ]
