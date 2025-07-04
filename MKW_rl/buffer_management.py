@@ -13,7 +13,6 @@ from torchrl.data import ReplayBuffer
 
 from config_files import config_copy
 from MKW_rl.experience_replay.experience_replay_interface import Experience
-from MKW_rl.reward_shaping import speedslide_quality_tarmac
 from MKW_rl.MKW_interaction.MKW_data_translate import get_1d_state_floats
 
 
@@ -91,18 +90,18 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 # used item punish
                 reward_into[i] += config_copy.constant_reward_per_action * engineered_item_usage_reward
 
-            # LUIGI CIRCUIT FORCE SHORTCUT
+            """ # LUIGI CIRCUIT FORCE SHORTCUT
             if rollout_results["state_float"][i]["kart_data"]["position"][2] > config_copy.LC_punish_line:
-                reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate # TODO: Set this value in the map cycle?
+                reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate # TODO: Set this value in the map cycle? """
 
-            if i < n_frames - 1:
+            """ if i < n_frames - 1:
                 if engineered_close_to_vcp_reward != 0:
                     reward_into[i] += engineered_close_to_vcp_reward * np.interp(max(config_copy.engineered_reward_min_dist_to_cur_vcp,
                             min(config_copy.engineered_reward_max_dist_to_cur_vcp, np.linalg.norm(rollout_results["state_float"][i]["relative_zone_centers"][0])),
                         ),
                         [config_copy.engineered_reward_min_dist_to_cur_vcp, config_copy.engineered_reward_max_dist_to_cur_vcp],
                         [0.5, -1]
-                    ) # normalizing to 1, -1 using np.interp so when we multiply by engineered reward we are reasonable
+                    ) # normalizing to 1, -1 using np.interp so when we multiply by engineered reward we are reasonable """
                 
         if i < n_frames - 1: # apply these rewards unless this is the finish frame
             """if config_copy.final_speed_reward_per_f_per_s != 0:
@@ -146,13 +145,13 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 reward_into[i] += completion_reward
                 # reward_into_progress[i] += completion_reward
 
-            if (engineered_start_boost_reward != 0
+            """ if (engineered_start_boost_reward != 0
                 and rollout_results["state_float"][i]["race_data"]["state"] == 1): # only reward start boost during countdown
                 # reward_into[i] += engineered_start_boost_reward * (rollout_results["state_float"][i]["start_boost_charge"] - .3)
                 if rollout_results["state_float"][i]["start_boost_charge"] > rollout_results["state_float"][i - 1]["start_boost_charge"]:
                     reward_into[i] += engineered_start_boost_reward if rollout_results["state_float"][i]["start_boost_charge"] < 0.95 else -engineered_start_boost_reward
                 else:
-                    reward_into[i] += -engineered_start_boost_reward if rollout_results["state_float"][i]["start_boost_charge"] <= 0.925 else 0
+                    reward_into[i] += -engineered_start_boost_reward if rollout_results["state_float"][i]["start_boost_charge"] <= 0.925 else 0 """
 
     # print("Rewards for progress:", np.sum(reward_into_progress))
     # print("Constant reward:", np.sum(reward_into_constant))
