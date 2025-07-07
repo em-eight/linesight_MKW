@@ -27,15 +27,15 @@ from config_files.user_config import *
 W_downsized = 153
 H_downsized = 114
 
-run_name = "rBC_VCP_rewards"
+run_name = "LC_VCP_rewards2"
 running_speed = 80
 
 use_race_restart = False
 restart_race_command = "restart_race" # can use basically anything so long as it doesn't conflict with a savestate filename.
 
 LC_punish_line = 44700
-LC_punish_rate = 0
-Mushroom_point = 4.17
+LC_punish_rate = 5
+Mushroom_point = 4.65
 
 # mushroom points for each track (because these are annoying to collect)
 all_mushroom_points = {"LC": 4.65, "rBC":4.17}
@@ -272,8 +272,7 @@ soft_update_tau = 0.02
 
 # Helper values
 distance_between_checkpoints = 300
-# Old values were 0.5 dbc and 90 rw. I have set the road_width to roughly match those values' ratios (90/0.5 = 180, 20000/300 = 66.67) taking 'closer to 24' into account (24/0.5 = 48)
-road_width = 30000  ## a little bit of margin, could be closer to 24 probably ? Don't take risks there are curvy roads
+road_width = 30000
 max_allowable_distance_to_virtual_checkpoint = np.sqrt((distance_between_checkpoints / 2) ** 2 + (road_width / 2) ** 2)
 
 # Restart intervals in case of lost connection or game crash
@@ -413,10 +412,10 @@ map_cycle += [
     # repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", False, True), 1),
     # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", True, True), 4),
     # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", False, True), 1),
-    # repeat(("LC", "linesight_savestates/LC_F_Fr_linux.sav", "LC.npy", True, True), 4),
-    # repeat(("LC", "linesight_savestates/LC_F_Fr_linux.sav", "LC.npy", False, True), 1),
-    repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", True, True), 4),
-    repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", False, True), 1),
-    repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", True, True), 4),
-    repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", False, True), 1),
+    repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", True, True), 4),
+    repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", False, True), 1),
+    # repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", True, True), 4),
+    # repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", False, True), 1),
+    # repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", True, True), 4),
+    # repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", False, True), 1),
 ]
