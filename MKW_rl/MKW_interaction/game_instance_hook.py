@@ -4,17 +4,15 @@ import os
 import sys
 
 # TODO: add user config for python packages or just use virtual env for windows idk lol
-# either way this step is not required either on linux or in a virtual env.
+# either way this step is not required either on linux or because I have global python modules available.
 # sys.path.append(os.path.expanduser("~") + "\\AppData\\Local\\programs\\python\\python312\\lib\\site-packages")
 import time
-
 import socket
-import signal
 import pickle
-from config_files import config_copy
 
 source_directory = os.getcwd()
 sys.path.append(source_directory)
+from config_files import config_copy
 
 from MKW_rl.MKW_interaction.MKW_interface import MKW_Interface
 from MKW_rl.MKW_interaction.MKW_data_translate import *
@@ -53,7 +51,13 @@ class GameInstanceHook():
         self.waiting_for_rkg = False
         self.rkg_timer = 0
 
+    def end_framedrawn_handling(self, width, height, data):
+        pass
+    def end_frameadvance_handling(self):
+        pass
+
     def framedrawn_handler(self, width, height, data):
+        # print(width, height)
         if self.waiting_for_rkg:
             return
         try:
@@ -115,7 +119,15 @@ class GameInstanceHook():
                     self.restarting_race_timer = 0
             return
 
-        socket_data = pickle.loads(self.conn.recv(256))
+        try:
+            socket_data = pickle.loads(self.conn.recv(256))
+        except Exception as e:
+            # print(e)
+            print("Closing socket and exiting")
+            self.close()
+            event.on_framedrawn(self.end_framedrawn_handling)
+            event.on_frameadvance(self.end_frameadvance_handling)
+            return
 
         frame_data_request = socket_data[0]
         game_data_request = socket_data[1]
@@ -162,6 +174,8 @@ class GameInstanceHook():
                 value = game_data["kart_data"][key]
                 if type(value) == vec3:
                     game_data["kart_data"][key] = [value.x, value.y, value.z]
+                elif type(value) == quatf:
+                    game_data["kart_data"][key] = [value.x, value.y, value.z, value.w]
             self.conn.sendall(pickle.dumps(game_data))
             self.last_game_data = game_data
         elif game_data_request:
