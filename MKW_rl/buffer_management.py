@@ -90,9 +90,9 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 # used item punish
                 reward_into[i] += config_copy.constant_reward_per_action * engineered_item_usage_reward
 
-            """ # LUIGI CIRCUIT FORCE SHORTCUT
+            # LUIGI CIRCUIT FORCE SHORTCUT
             if rollout_results["state_float"][i]["kart_data"]["position"][2] > config_copy.LC_punish_line:
-                reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate # TODO: Set this value in the map cycle? """
+                reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate # TODO: Set this value in the map cycle?
 
             """ if i < n_frames - 1:
                 if engineered_close_to_vcp_reward != 0:
@@ -128,7 +128,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 # 83 > 120 = 40 speed increase. 1/3rd of progression. so, discount roughly 40% (?) of progression
                 if (rollout_results["state_float"][i]["boost_data"]["shroom_boost"] > 60
                     and temp_completion_reward > 0):
-                    temp_completion_reward = 0 # 0.6 (40% discount for speed increase) divided by 30/90 as we can't confirm source of boost outside that range
+                    temp_completion_reward = temp_completion_reward * 0.2 # 0.6 (40% discount for speed increase) divided by 30/90 as we can't confirm source of boost outside that range
             
                 reward_into[i] += temp_completion_reward
                 # reward_into_progress[i] += temp_completion_reward
