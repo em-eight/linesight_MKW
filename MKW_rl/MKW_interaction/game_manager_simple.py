@@ -19,7 +19,7 @@ import numpy.typing as npt
 import psutil
 
 HOST = "127.0.0.1"
-FRAME_WIDTH = 625
+FRAME_WIDTH = 611
 FRAME_HEIGHT = 456
 
 # Assuming that this function will work unmodified despite changes to the magnitude of zone spacings
@@ -292,11 +292,11 @@ class GameManager:
         # print("loading savestate")
         if (self.latest_map_path_requested != savestate_path or last_loop_finished) or not config_copy.use_race_restart:
             # We have to load the savestate we want
-            print("Loading savestate")
+            # print("Loading savestate")
             self.sock.sendall(pickle.dumps([False, False, computed_action, savestate_path]))
             self.sock.recv(128) # wait for dolphin to load the state before requesting actions
             self.latest_map_path_requested = savestate_path # this seems backwards... TODO
-        else:
+        else: # map hasn't changed
             # Send signal to restart race manually instead of reloading savestate to save overhead
             # Note that this doesn't actually save any time as loading a savestate is generally just as fast
             # print("Restarting manually")
