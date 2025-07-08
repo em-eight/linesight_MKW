@@ -1,8 +1,7 @@
 """
 This file contains user-level configuration.
 It is expected that the user fills this file once when setting up the project, and does not need to modify it after.
-Note that there is an additional config file located in mkw-scripts/mkw_config.py to mark the region of your MKW game file.
-""" # TODO: remove excess mkw_config.py file and port into user config
+"""
 
 import os
 from pathlib import Path
@@ -15,25 +14,41 @@ is_linux = platform in ["linux", "linux2"]
 # --Unused for this project
 target_python_link_path = Path(os.path.expanduser("~")) / "Documents" / "TMInterface" / "Plugins" / "Python_Link.as"
 
+# Path to the folder of the cloned repository
 project_path = Path(os.path.expanduser("~")) / "Documents" / "Python" / "Linesight" / "linesight_MKW"
 
 project_scripts_path = project_path / "mkw_scripts"
 
-# Directory that dolphin is working from ( contains the .exe on Windows)
+# Directory that dolphin is working from (The main dolphin folder)
 dolphin_base_path = Path(os.path.expanduser("~")) / "Programs" / "dolphin"
 
 # If on Linux, path of the dolphin executable, starting at the dolphin_base_path
 linux_launch_game_path = "/Build/Binaries/dolphin-emu"
 
-# Communication port for the first TMInterface instance that will be launched.
+# Communication port for the first Dolphin instance that will be launched.
 # If using multiple instances, the ports used will be base_tmi_port + 1, +2, +3, etc...
 base_tmi_port = 8478
 
 # If on windows, name of the TMLoader profile that with launch TmForever + TMInterface
+# --Unused for this project
 windows_TMLoader_profile_name = "default"
 
 # Location of the MKW game file/folder (usually a .rvz or .iso)
+# Note that if this is a folder this should link to the boot file, not the folder itself (Maybe, I haven't tested).
 game_path = Path(os.path.expanduser("~")) / "Programs" / "MKWii" / "Mario_Kart_Wii.rvz"
+
+"""
+The game_region defines the game ID to use for all scripts in mkw-scripts
+The game ID is dependent on the region of your game file.
+
+If unsure, check the flag/version Dolphin displays in the menu and match it with the value in quotations below.
+USA: NTSC-U -- "RMCE01"
+Europe: PAL -- "RMCP01"
+Japan: NTSC-J -- "RMCJ01"
+Republic of Korea: NTSC-K -- "RMCK01"
+Note that Gecko codes are region specific. You must use/copy from the provided matching .ini file for them to work.
+"""
+game_region = "RMCE01"
 
 # If on windows, path where the Dolphin exe can be found.
 # Usually Path(os.path.expanduser("~")) / "AppData" / "Local" / "TMLoader" / "TMLoader.exe"

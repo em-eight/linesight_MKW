@@ -9,4 +9,5 @@ Japan: NTSC-J -- "RMCJ01"
 Republic of Korea: NTSC-K -- "RMCK01"
 """
 
-game_id_string = "RMCE01"
+from config_files.user_config import game_region
+game_id_string = game_region
