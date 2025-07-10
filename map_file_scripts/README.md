@@ -13,3 +13,5 @@ Drive the race as normal, using the mushroom in the normal spot for the track yo
 Be sure not to respawn (fall out of bounds) during your run. Respawning messes with the position tracker and I have observed that it breaks the vcp logic in the training codebase. I have not fixed this yet.
 
 Once the race is finished, you should see the file "map.npy" in the directory you specified. Rename this file to match the track and you are done. (In the future I may add an additional file to plot the generated .npy to confirm that the file is correct)
+
+You will need to restart the game for every map file you generate. I have also run into issues with crashes when reloading the script among other things, the crashes don't appear to break anything, they are just inconvenient.
