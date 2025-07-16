@@ -267,6 +267,8 @@ def learner_process_fn(
         # LR and weight_decay calculation
         learning_rate = utilities.from_exponential_schedule(config_copy.lr_schedule, accumulated_stats["cumul_number_memories_generated"])
         weight_decay = config_copy.weight_decay_lr_ratio * learning_rate
+
+        # Construct annealing reward schedules
         engineered_button_A_pressed_reward = utilities.from_linear_schedule(
             config_copy.engineered_holding_A_reward_schedule,
             accumulated_stats["cumul_number_memories_generated"],
@@ -644,7 +646,7 @@ def learner_process_fn(
             if online_network.training:
                 online_network.eval()
             tau = torch.linspace(0.05, 0.95, config_copy.iqn_k)[:, None].to("cuda")
-
+            # TODO: Check for bug with actions inserted into inferer network
             state_float = MKW_data_translate.get_1d_state_floats(rollout_results["state_float"][0], rollout_results["actions"][:5])
             per_quantile_output = inferer.infer_network(rollout_results["frames"][0], state_float, tau)
             for i, std in enumerate(list(per_quantile_output.std(axis=0))):
@@ -707,7 +709,7 @@ def learner_process_fn(
                 f"{datetime.now().strftime('%Y/%m/%d, %H:%M:%S')} "
                 + " ".join(
                     [
-                        f"{'**' if v < previous_alltime_min.get(k, 99999999) else ''}{k}: {v / 1000:.2f}{'**' if v < previous_alltime_min.get(k, 99999999) else ''}"
+                        f"{'**' if v < previous_alltime_min.get(k, 99999999) else ''}{k}: {v :.3f}{'**' if v < previous_alltime_min.get(k, 99999999) else ''}"
                         for k, v in accumulated_stats["alltime_min_ms"].items()
                     ]
                 ),
