@@ -235,6 +235,8 @@ class GameInstanceHook():
                 """
             self.game_data_initiated = False
             self.ghost_saved = False
+            self.waiting_for_rkg = False
+            self.rkg_timer = 0
             # print("Loaded new savestate:", self.desired_savestate)
 
         controller.set_gc_buttons(0, self.desired_inputs)
