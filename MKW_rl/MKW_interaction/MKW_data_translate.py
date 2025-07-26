@@ -1,17 +1,15 @@
 """
 This file contains classes that facilitate passing game data from the instance hook to the game manager.
 As the game_instance_hook.py file runs within dolphin, it has access to the functions defined in the dolphin stubs.
-Due to this, the game manager cannot import the classes which define datatypes for the game.
-Thus, this file copies implementations of mat34 and vec3 without using dolphin stubs, and defines TypedDicti classes to assist data transfer.
-
-
+The game manager, however, cannot import the classes which define certain datatypes for the game.
+Thus, this file copies implementations of mat34 and vec3 without using dolphin stubs, and redefines these classes to assist data transfer.
 """
 
 from dataclasses import dataclass
 import math
 from typing import TypedDict
-import os, sys
-sys.path.append(os.path.expanduser("~") + "\\AppData\\Local\\programs\\python\\python312\\lib\\site-packages")
+# import os, sys
+# sys.path.append(os.path.expanduser("~") + "\\AppData\\Local\\programs\\python\\python312\\lib\\site-packages")
 import flatdict
 from config_files import config_copy
 import numpy as np
