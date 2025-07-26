@@ -59,6 +59,7 @@ from config_files import config_copy
 from MKW_rl.agents.iqn import make_untrained_iqn_network
 from MKW_rl.multiprocess.collector_process import collector_process_fn
 from MKW_rl.multiprocess.learner_process import learner_process_fn
+from MKW_rl.utilities import set_random_seed
 
 # Set torch settings for RL
 # noinspection PyUnresolvedReferences
@@ -66,10 +67,7 @@ torch.backends.cudnn.benchmark = True
 torch.set_num_threads(1)
 torch.set_float32_matmul_precision("high")
 random_seed = 444
-torch.cuda.manual_seed_all(random_seed)
-torch.manual_seed(random_seed)
-random.seed(random_seed)
-np.random.seed(random_seed)
+set_random_seed(random_seed)
 
 
 def signal_handler(sig, frame): # receive command to kill game instances
@@ -152,7 +150,9 @@ if __name__ == "__main__":
 
     # Start learner process
     print("Train.py: Starting learner process")
-    learner_process_fn(rollout_queues,uncompiled_shared_network,shared_network_lock,shared_steps,base_dir,save_dir,tensorboard_base_dir) #Turn main process into learner process instead of starting a new one, this saves 1 CUDA context
+    learner_process_fn(
+        rollout_queues, uncompiled_shared_network, shared_network_lock, shared_steps, base_dir, save_dir, tensorboard_base_dir
+    )  # Turn main process into learner process instead of starting a new one, this saves 1 CUDA context
 
     for collector_process in collector_processes:
         collector_process.join() # combine processes for learning and/or completion?

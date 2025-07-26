@@ -170,7 +170,9 @@ def main():
                     break
                 except ConnectionRefusedError as e:
                     print(e)
+
     reconnect()
+
     def replay_file_ready():
         return os.path.isfile(pr_replay_path / pr_replay_filename)
 

@@ -14,6 +14,7 @@ from torch import multiprocessing as mp
 from config_files import config_copy
 from MKW_rl import utilities
 from MKW_rl.agents import iqn as iqn
+from MKW_rl.utilities import set_random_seed
 
 
 def collector_process_fn(
@@ -29,6 +30,8 @@ def collector_process_fn(
 ):
     from MKW_rl.map_loader import analyze_map_cycle, load_next_map_zone_centers
     from MKW_rl.MKW_interaction import game_manager_simple
+
+    set_random_seed(process_number)
 
     mkw = game_manager_simple.GameManager(
         game_spawning_lock=game_spawning_lock,
