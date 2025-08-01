@@ -27,18 +27,18 @@ from config_files.user_config import *
 W_downsized = 153
 H_downsized = 114
 
-run_name = "LC_VCP_rewards2"
+run_name = "rGV2_test"
 running_speed = 80
 
 use_race_restart = False
 restart_race_command = "restart_race" # can use basically anything so long as it doesn't conflict with a savestate filename.
 
 LC_punish_line = 44700
-LC_punish_rate = 5
-Mushroom_point = 4.65
+LC_punish_rate = 0
+Mushroom_point = 4.29
 
-# mushroom points for each track (because these are annoying to collect)
-all_mushroom_points = {"LC": 4.65, "rBC":4.17}
+# mushroom points for each track (because these are annoying to collect, and will be useful in the future for multi-track training)
+all_mushroom_points = {"LC": 4.65, "rBC":4.17, "rMC3":4.63, "rGV2":4.29}
 
 f_per_action = 2
 game_running_fps = 30
@@ -67,7 +67,8 @@ margin_to_announce_finish_meters = 700
 
 global_schedule_speed = 1.5
 
-constant_reward_per_action = -2 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
+# value here is lower bound of rewards
+constant_reward_per_action = -7 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
 
 epsilon_schedule = [
     (0, 1),
@@ -136,9 +137,7 @@ engineered_external_velocity_reward_schedule = [
 
 """
 it is recommended to work with standardized values for the inputs of the neural network.
-
 The same recommendation holds for the output of the neural network.
-
 Since the neural network outputs returns, you want your returns to be somewhat normalized.
 What does it mean?
 
@@ -150,9 +149,8 @@ For Trackmania, we could say that
 "playing well" is being able to achieve 300km/h on average.  We can calculate the theoretical returns obtained by the agent and make sure it's around 2.
 "playing bad" is achieving 100km/h on average. We can calculate the theoretical returns obtained by the agent and make sure it's around -2.
 
-This is where these magic numbers come from:
-constant_reward_per_ms = -6 / 5000
-reward_per_m_advanced_along_centerline = 5 / 500
+However, we had a bump in performance when the range was -3 / -7 than when the range was +2 / -2 in Trackmania.
+We still do not understand why. There's no theoretical reason for this...
 """
 
 n_steps = 3
@@ -167,7 +165,7 @@ total_second_increment_expected = 3 / (expected_lap_duration_s * 3 / temporal_mi
 
 # added_race_completion * 2
 # expected_lap_count * 3 / 7 # how many 7-second increments per lap
-# total_distance_traveled = 3 
+# total_distance_traveled = 3
 # total_distance_traveled / (expected_lap_duration_s * 3 / 7) = distance_we_should_progress in 7 seconds
 # distance_we_should_progress_ratio (4)
 
@@ -200,7 +198,7 @@ button_A_held_reward_per_s = button_A_held_reward_per_f * game_running_fps
 # Mushroom boost punishments. Mushrooms last 1.5s, and give roughly +30-40 speed
 
 # Numper of game_data points + 7 (number of input buttons in 1 input) * number of previous actions + 3 (3d point) * n zone centers
-float_input_dim = 51 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
+float_input_dim = 56 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
 
 float_hidden_dim = 256
 conv_head_output_dim = 5280
@@ -221,9 +219,11 @@ number_times_single_memory_is_used_before_discard = 32  # 32 // 4
 # Schedule how many state-action pairs we save in memory at specific sections of training
 memory_size_schedule = [
     (0, (50_000, 20_000)),
-    (500_000 * global_schedule_speed, (125_000, 50_000)),
-    (1_000_000 * global_schedule_speed, (400_000, 125_000)),
-    (2_000_000 * global_schedule_speed, (1_100_000, 250_000)),
+    (1_000_000 * global_schedule_speed, (125_000, 50_000)),
+    (3_000_000 * global_schedule_speed, (250_000, 125_000)),
+    (5_000_000 * global_schedule_speed, (400_000, 250_000)),
+    (7_500_000 * global_schedule_speed, (700_000, 400_000)),
+    (10_000_000 * global_schedule_speed, (1_000_000, 400_000)),
 ]
 lr_schedule = [
     (0, 1e-3),
@@ -394,10 +394,8 @@ map_cycle = []
 
 
 map_cycle += [
-    # repeat(("rGV2_auto", "linesight_savestates\\rGV2_auto_hitbox_charge2.sav", "rGV2.npy", True, True), 4),
-    # repeat(("rGV2_auto", "linesight_savestates\\rGV2_auto_hitbox_charge2.sav", "rGV2.npy", False, True), 1),
-    # repeat(("rGV2", "linesight_savestates\\rGV2_F_FR_hitbox.sav", "rGV2.npy", True, True), 4),
-    # repeat(("rGV2", "linesight_savestates\\rGV2_F_FR_hitbox.sav", "rGV2.npy", False, True), 1),
+    repeat(("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", True, True), 4),
+    repeat(("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", False, True), 1),
     # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", True, True), 4),
     # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", False, True), 1),
     # repeat(("rMC3", "__slot__2", "rMC3.npy", True, True), 4), # Using __slot__X for dolphin save slots. Not recommended, as the save state depends on the dolphin save.
@@ -412,10 +410,12 @@ map_cycle += [
     # repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", False, True), 1),
     # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", True, True), 4),
     # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", False, True), 1),
-    repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", True, True), 4),
-    repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", False, True), 1),
+    # repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", True, True), 4),
+    # repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", False, True), 1),
     # repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", True, True), 4),
     # repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", False, True), 1),
     # repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", True, True), 4),
     # repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", False, True), 1),
+    # repeat(("rMC3", "linesight_savestates/rMC3_D_MB_linux.sav", "rMC3.npy", True, True), 4),
+    # repeat(("rMC3", "linesight_savestates/rMC3_D_MB_linux.sav", "rMC3.npy", False, True), 1),
 ]

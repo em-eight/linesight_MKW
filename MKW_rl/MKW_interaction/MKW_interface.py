@@ -164,8 +164,11 @@ class MKW_Interface():
 	def get_boost_states(self) -> Boosts:
 		boosts = Boosts()
 		boosts["mt_charge"] = self.kart_move.mt_charge()
+		boosts["mt_charge_full"] = 1 if self.kart_move.mt_charge() >= 270 else 0
 		boosts["smt_charge"] = self.kart_move.smt_charge()
+		boosts["smt_charge_full"] = 1 if self.kart_move.smt_charge() >= 270 else 0
 		boosts["ssmt_charge"] = self.kart_move.ssmt_charge()
+		boosts["ssmt_charge_full"] = 1 if self.kart_move.ssmt_charge() >= 75 else 0
 		boosts["mt_boost"] = self.kart_boost.all_mt_timer()
 		boosts["trick_boost"] = self.kart_boost.trick_and_zipper_timer()
 		boosts["shroom_boost"] = self.kart_boost.mushroom_and_boost_panel_timer()
@@ -188,6 +191,7 @@ class MKW_Interface():
 			kart_data["wheelie_cooldown"] = 0
 		kart_data["trick_cooldown"] = self.kart_jump.cooldown()
 		kart_data["respawn_timer"] = self.kart_collide.time_before_respawn() # go figure, there's two different timers for the respawn. A waiting period, and a continuation period.
+		kart_data["time_in_respawn"] = self.kart_move.time_in_respawn()
 		return kart_data
 
 	def get_race_data(self) -> Race_Data:
@@ -219,6 +223,10 @@ class MKW_Interface():
 		game_data["kart_data"] = self.get_kart_data()
 		game_data["race_data"] = self.get_race_data()
 		game_data["start_boost_charge"] = self.get_start_boost_charge()
+		if self.get_start_boost_charge() >= 0.94 and self.get_start_boost_charge() < 0.95:
+			game_data["start_boost_full"] = 1
+		else:
+			game_data["start_boost_full"] = 0
 		game_data["trickable_timer"] = self.get_trickable_timer()
 		game_data["surface_properties"] = self.get_surface_properties()
 		game_data["airtime"] = self.get_airtime()

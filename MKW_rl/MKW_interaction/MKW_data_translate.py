@@ -158,8 +158,11 @@ float_input_mean = [
     0.5, # TriggerRight
     # End ugly ugly input listing
     75, # mt_charge
+    0, # mt_charge_full
     20, # smt_charge
+    0, # smt_charge_full
     3, # ssmt_charge
+    0, # ssmt_charge_full
     30, # mt_boost
     0, # trick_boost
     30, # shroom_boost
@@ -189,6 +192,7 @@ float_input_mean = [
     5, # wheelie_cooldown
     5, # trick_cooldown
     0, # respawn_timer
+    0, # time_in_respawn
     0.5, # lap_completion
     2.0, # race_completion
     2.0, # race_completion_max
@@ -200,6 +204,7 @@ float_input_mean = [
     60, # race_time
     2, # state
     0.8, # start_boost_charge -- average value over an entire rollout
+    0.5, # start_boost_charge_full
     2, # trickable_timer
     # SURFACE PROPERTIES
     0, # is_wall
@@ -373,8 +378,11 @@ float_input_deviation = [
     1, # TriggerRight
     # End ugly ugly input list
     270, # mt_charge
+    1, # mt_charge_full
     270, # smt_charge
+    1, # smt_charge_full
     75, # ssmt_charge
+    1, # ssmt_charge_full
     141, # mt_boost
     100, # trick_boost
     90, # shroom_boost
@@ -406,6 +414,7 @@ float_input_deviation = [
     20, # wheelie_cooldown
     30, # trick_cooldown
     150, # respawn_timer
+    150, # time_in_respawn
     1.0, # lap_completion
     4.0, # race_completion
     4.0, # race_completion_max
@@ -417,6 +426,7 @@ float_input_deviation = [
     360, # race_time
     3, # state
     1.0, # start_boost_charge
+    1.0, # start_boost_charge_full
     23, # trickable_timer
     # SURFACE PROPERTIES
     1, # is_wall
