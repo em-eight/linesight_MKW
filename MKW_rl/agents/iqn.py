@@ -49,7 +49,7 @@ class IQN_Network(torch.nn.Module):
             activation_function(inplace=True),
             torch.nn.Flatten(),
         )
-        # Create the network layers we will be using to process game data (Optimizing for this network is likely more ideal)
+        # Create the network layers we will be using to process game data
         self.float_feature_extractor = torch.nn.Sequential(
             torch.nn.Linear(float_inputs_dim, float_hidden_dim),
             activation_function(inplace=True),
@@ -181,6 +181,11 @@ def iqn_loss(targets: torch.Tensor, outputs: torch.Tensor, tau_outputs: torch.Te
     """
     TD_error = targets[:, :, None, :] - outputs[:, None, :, :]
     # (batch_size, iqn_n, iqn_n, 1)
+    # for element in TD_error:
+        # if abs(element) < iqn_kappa:
+            # loss = (0.5 / iqn_kappa) * element^2
+        # else:
+            # loss = abs(element) - (0.5 * iqn_kappa)
     loss = torch.where(
         torch.lt(torch.abs(TD_error), config_copy.iqn_kappa),
         (0.5 / config_copy.iqn_kappa) * TD_error**2,
@@ -311,8 +316,10 @@ class Trainer:
                 q__st__online__quantiles_tau3.gather(1, actions).reshape([self.iqn_n, self.batch_size, 1]).transpose(0, 1)
             )  # (batch_size, iqn_n, 1)
 
+            # take standard loss
             loss = iqn_loss(outputs_target_tau2, outputs_tau3, tau3, config_copy.iqn_n, config_copy.batch_size)
 
+            # take square root of loss
             target_self_loss = torch.sqrt(
                 iqn_loss(
                     outputs_target_tau2.detach(), outputs_target_tau2.detach(), tau2.detach(), config_copy.iqn_n, config_copy.batch_size
@@ -461,7 +468,6 @@ def make_untrained_iqn_network(jit: bool, is_inference: bool) -> Tuple[IQN_Netwo
         jit: a boolean indicating whether compilation should be used
     """
 
-    # TODO: Adjust float input dimension and mean/std to ideally dictionaries, or refactor to translate to list only when used
     uncompiled_model = IQN_Network(
         float_inputs_dim=config_copy.float_input_dim,
         float_hidden_dim=config_copy.float_hidden_dim,
