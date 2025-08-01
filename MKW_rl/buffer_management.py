@@ -124,11 +124,11 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 #     rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1] # meters progressed (negative if backwards)
                 # ) * config_copy.reward_per_m_advanced_along_centerline # Based on estimated time to lap completion
 
-                # discourage mushroom usage according to speed increase for the duration of the boost
+                """# discourage mushroom usage according to speed increase for the duration of the boost
                 # 83 > 120 = 40 speed increase. 1/3rd of progression. so, discount roughly 40% (?) of progression
                 if (rollout_results["state_float"][i]["boost_data"]["shroom_boost"] > 60
                     and temp_completion_reward > 0):
-                    temp_completion_reward = temp_completion_reward * 0.2 # 0.6 (40% discount for speed increase) divided by 30/90 as we can't confirm source of boost outside that range
+                    temp_completion_reward = temp_completion_reward * 1 # 0.6 (40% discount for speed increase) divided by 30/90 as we can't confirm source of boost outside that range"""
             
                 reward_into[i] += temp_completion_reward
                 # reward_into_progress[i] += temp_completion_reward
@@ -137,7 +137,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                                                                                 # rollout_results["state_float"][i]["kart_data"]["external_velocity"][2]**2)
                 # reward_into[i] += external_velocity_reward
                 # reward_into_ev[i] += external_velocity_reward
-            elif type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 1:
+            elif type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 1: # Only apply these rewards during race countdown
                 # continue using race completion for countdown reward as VCPs are too sparse to encourage moving forward
                 completion_reward = (
                     rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1]
