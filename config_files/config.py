@@ -161,7 +161,21 @@ LC_punish_rate = 0 # Multiplied by constant_reward_per_action
 Mushroom_point = 4.29
 
 # mushroom points for each track (because these are annoying to collect, and will be useful in the future for multi-track training)
-all_mushroom_points = {"LC": 4.65, "rBC":4.17, "rMC3":4.63, "rGV2":4.29}
+all_mushroom_points = {
+    "LC": 4.65,
+    "rBC":4.17,
+    "rMC3":4.63,
+    "rGV2":4.29,
+    "rMR":4.29,
+    "DC": 4.15,
+    "MMM": 4.38,
+    "MC": 4.69,
+    "CM": 4.27,
+    "DKS": 4.32,
+    "rMC": 4.24,
+    "rYF": 4.06,
+    "rDH": 4.65,
+}
 
 game_reboot_interval = 3600 * 7  # Restart dolphin every x seconds
 running_speed = 80 # UNUSED; Remove from GameManager instantiation
