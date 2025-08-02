@@ -12,8 +12,9 @@
 /tensorboard/*
 !/tensorboard/.gitkeep
 /misc_crap
-/maps/*
-!/maps/map5_0.5m_cl.npy
+/linesight_savestates/*
+/dolphin_ports/*
+!/dolphin_ports/README.md
 /trackmania_rl/dxcam
 *.txt
 !requirements_conda.txt
