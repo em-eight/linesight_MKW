@@ -27,21 +27,28 @@ from config_files.user_config import *
 W_downsized = 153
 H_downsized = 114
 
-run_name = "rGV2_test"
-running_speed = 80
+run_name = "rGV2_spectral_norm"
 
-use_race_restart = False
-restart_race_command = "restart_race" # can use basically anything so long as it doesn't conflict with a savestate filename.
+# gpu_collectors_count is the number of Dolphin instances that will be launched in parallel.
+# It is recommended that users adjust this number depending on the performance of their machine.
+# We recommend trying different values and finding the one that maximises the number of batches done per unit of time.
+# Note that each additional instance requires a separate folder containing a full Dolphin installation, and should be named sequentially.
+# (Dolphin's game save files cannot be shared between instances)
+# For instance, if the original install is called 'dolphin_folder', installations 2 and 3 should be named 'dolphin_folder2' and 'dolphin_folder3'.
+gpu_collectors_count = 6
 
-LC_punish_line = 44700
-LC_punish_rate = 0
-Mushroom_point = 4.29
-
-# mushroom points for each track (because these are annoying to collect, and will be useful in the future for multi-track training)
-all_mushroom_points = {"LC": 4.65, "rBC":4.17, "rMC3":4.63, "rGV2":4.29}
+global_schedule_speed = 1.5
+n_steps = 3
 
 f_per_action = 2
 game_running_fps = 30
+use_miniraces = True
+
+"""
+NETWORK SETTINGS
+"""
+
+# Zone centers passed to the network
 n_zone_centers_in_inputs = 40
 one_every_n_zone_centers_in_inputs = 5
 n_zone_centers_extrapolate_after_end_of_map = 500
@@ -49,155 +56,7 @@ n_zone_centers_extrapolate_before_start_of_map = 20
 
 n_prev_actions_in_inputs = 5
 
-n_contact_material_physics_behavior_types = 4  # See contact_materials.py
-# race not completed in time
-cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 300 # in seconds
-# No progress has been made recently
-cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 8 # in seconds
-
-use_miniraces = True
-temporal_mini_race_duration_s = 6
-temporal_mini_race_duration_f = game_running_fps * temporal_mini_race_duration_s
-temporal_mini_race_duration_actions = temporal_mini_race_duration_f // f_per_action
-oversample_long_term_steps = 40
-oversample_maximum_term_steps = 5
-min_horizon_to_update_priority_actions = temporal_mini_race_duration_actions - 40
-# If mini_race_time == mini_race_duration this is the end of the minirace
-margin_to_announce_finish_meters = 700
-
-global_schedule_speed = 1.5
-
-# value here is lower bound of rewards
-constant_reward_per_action = -7 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
-
-epsilon_schedule = [
-    (0, 1),
-    (50_000, 1),
-    (300_000, 0.1),
-    (3_000_000 * global_schedule_speed, 0.03),
-]
-epsilon_boltzmann_schedule = [
-    (0, 0.15),
-    (3_000_000 * global_schedule_speed, 0.03),
-    (5_000_000 * global_schedule_speed, 0.02),
-]
-tau_epsilon_boltzmann = 0.01
-discard_non_greedy_actions_in_nsteps = True
-buffer_test_ratio = 0.05
-
-engineered_speedslide_reward_schedule = [
-    (0, 0),
-]
-engineered_neoslide_reward_schedule = [
-    (0, 0),
-]
-engineered_kamikaze_reward_schedule = [
-    (0, 0),
-]
-
-"""(0, 1 * -constant_reward_per_action), # 2 per action
-    (50_000, 1 * -constant_reward_per_action),
-    (500_000 * global_schedule_speed, 0.8 * -constant_reward_per_action),
-    (3_000_000 * global_schedule_speed, 0.4 * -constant_reward_per_action),
-    (5_000_000 * global_schedule_speed, 0 * -constant_reward_per_action),"""
-engineered_close_to_vcp_reward_schedule = [
-    (0, 0)
-]
-# Reward A.I. for accelerating -- obsolete. completely unnecessary.
-engineered_holding_A_reward_schedule = [
-    (0, 2),
-    (50_000, 2),
-    (300_000 * global_schedule_speed, 1),
-    (3_000_000 * global_schedule_speed, 0),
-]
-# Punish A.I. for using an item as a ratio multiplier to progress made during boost
-engineered_item_usage_reward_schedule = [
-    (0, 0),
-]
-
-engineered_supergrinding_reward_schedule = [
-    (0, 0),
-]
-
-# likely obsolete. Very likely unnecessary.
-engineered_start_boost_charge_reward_schedule = [
-    (0, 0),
-]
-
-# Average EV expected for an AI that is not doing bad or good
-expected_average_external_velocity = 20
-
-# give +2 reward total for the duration of a mini-race for good performance
-external_velocity_reward_per_f = (2 / temporal_mini_race_duration_actions) / expected_average_external_velocity
-
-# Reward maintaining ev based on an average of 60 as being optimized
-engineered_external_velocity_reward_schedule = [
-    (0, 0),
-]
-
-"""
-it is recommended to work with standardized values for the inputs of the neural network.
-The same recommendation holds for the output of the neural network.
-Since the neural network outputs returns, you want your returns to be somewhat normalized.
-What does it mean?
-
-It means that when the agent plays well in a favorable scenario, returns should be somewhere around 2.
-If the agent plays bad in an unfavorable scenario, returns should be somewhere around -2.
-If the agent plays neither good neither bad, returns should be around 0.
-
-For Trackmania, we could say that
-"playing well" is being able to achieve 300km/h on average.  We can calculate the theoretical returns obtained by the agent and make sure it's around 2.
-"playing bad" is achieving 100km/h on average. We can calculate the theoretical returns obtained by the agent and make sure it's around -2.
-
-However, we had a bump in performance when the range was -3 / -7 than when the range was +2 / -2 in Trackmania.
-We still do not understand why. There's no theoretical reason for this...
-"""
-
-n_steps = 3
-
-# -4 / time_per_lap * lap_count * actions_per_second
-# TODO: Mark this value for individual tracks
-expected_lap_duration_s = 55 # TODO: Set this value in the map cycle
-
-expected_lap_duration_per_action = expected_lap_duration_s * (game_running_fps / f_per_action) # at 60 fps
-average_lap_increment_per_action = 1 / expected_lap_duration_per_action
-total_second_increment_expected = 3 / (expected_lap_duration_s * 3 / temporal_mini_race_duration_s)
-
-# added_race_completion * 2
-# expected_lap_count * 3 / 7 # how many 7-second increments per lap
-# total_distance_traveled = 3
-# total_distance_traveled / (expected_lap_duration_s * 3 / 7) = distance_we_should_progress in 7 seconds
-# distance_we_should_progress_ratio (4)
-
-reward_per_m_advanced_along_centerline = 4 / total_second_increment_expected
-
-# Expected average speed of 100 units per frame (u/f)
-# VCP distance of 300 units, normalized by vcp generation code ( Thank you pb4 & Agade :) )
-# 60fps (internal, unaffected by game_running_speed)
-# 6000 u/s for doing well, 6000/300 = 20 VCPs per s (Note that VCPs are not on the optimal lines, thus effective speed is higher than 100u/f)
-expected_vcp_passed_per_s = 20
-# +4 reward over the course of a minirace for driving well (passing VCPs)
-reward_per_vcp_passed = 4 / (expected_vcp_passed_per_s * temporal_mini_race_duration_s)
-
-# Reward functions for standard progression along the track
-final_speed_reward_as_if_duration_s = 0.00002 # times speed (80) times reward_per_m (1000) = 
-final_speed_reward_per_f_per_s = reward_per_m_advanced_along_centerline * final_speed_reward_as_if_duration_s
-
-
-required_progress_per_cutoff_rollout = 0.002 # 5/1000ths of a lap
-required_progress_ratio = expected_lap_duration_per_action / cutoff_rollout_if_no_vcp_passed_within_duration_f # 1800 / 180 = 10 frames?
-lap_completion_required_per_expected_lap_completion = required_progress_ratio * required_progress_per_cutoff_rollout # Ratio of how much of the lap we require to what we should have completed per no-progress cutoff period
-
-# 2000 per lap, 1800 frames per lap, ~1.1 reward per frame
-button_A_held_reward_per_f = reward_per_m_advanced_along_centerline / expected_lap_duration_per_action
-button_A_held_reward_per_s = button_A_held_reward_per_f * game_running_fps
-# Expected to spend ~30s per lap on short tracks, ~45s on longer tracks.
-# Use ratio of m advanced to determine reward
-# Unknown if adjusting for start boost would be good
-
-# Mushroom boost punishments. Mushrooms last 1.5s, and give roughly +30-40 speed
-
-# Numper of game_data points + 7 (number of input buttons in 1 input) * number of previous actions + 3 (3d point) * n zone centers
+# Numper of game_data points + (7 (number of input buttons in each input) * number of previous actions) + (3 * n zone centers)
 float_input_dim = 56 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
 
 float_hidden_dim = 256
@@ -215,6 +74,46 @@ prio_beta = np.float32(1)
 
 # State-action pair processed in action exploration will be discarded after randomly selected this amount of times
 number_times_single_memory_is_used_before_discard = 32  # 32 // 4
+
+epsilon_schedule = [
+    (0, 1),
+    (50_000, 1),
+    (300_000, 0.1),
+    (3_000_000 * global_schedule_speed, 0.03),
+]
+epsilon_boltzmann_schedule = [
+    (0, 0.15),
+    (3_000_000 * global_schedule_speed, 0.03),
+    (5_000_000 * global_schedule_speed, 0.02),
+]
+tau_epsilon_boltzmann = 0.01
+discard_non_greedy_actions_in_nsteps = True
+buffer_test_ratio = 0.05
+
+batch_size = 512
+weight_decay_lr_ratio = 1 / 50
+adam_epsilon = 1e-4
+adam_beta1 = 0.9
+adam_beta2 = 0.999
+
+single_reset_flag = 0
+reset_every_n_frames_generated = 400_000_00000000
+additional_transition_after_reset = 1_600_000
+last_layer_reset_factor = 0.8  # 0 : full reset, 1 : nothing happens
+overall_reset_mul_factor = 0.01  # 0 : nothing happens ; 1 : full reset
+
+clip_grad_value = 1000
+clip_grad_norm = 30
+
+# Number of state-action pairs we train before updating the Target Network as defined by DQN.
+number_memories_trained_on_between_target_network_updates = 2048
+soft_update_tau = 0.02
+
+# Every n batches, each collection process updates it's network to match the current Online Network as defined by DQN
+send_shared_network_every_n_batches = 10
+update_inference_network_every_n_actions = 20
+
+target_self_loss_clamp_ratio = 4
 
 # Schedule how many state-action pairs we save in memory at specific sections of training
 memory_size_schedule = [
@@ -251,26 +150,32 @@ gamma_schedule = [
 # Mini-race disable commit:
 # https://github.com/Linesight-RL/linesight/commit/c171384c086714f465a7f71949dd047e497875a8
 
-batch_size = 512
-weight_decay_lr_ratio = 1 / 50
-adam_epsilon = 1e-4
-adam_beta1 = 0.9
-adam_beta2 = 0.999
+"""
+RACE SETTINGS
+"""
 
-single_reset_flag = 0
-reset_every_n_frames_generated = 400_000_00000000
-additional_transition_after_reset = 1_600_000
-last_layer_reset_factor = 0.8  # 0 : full reset, 1 : nothing happens
-overall_reset_mul_factor = 0.01  # 0 : nothing happens ; 1 : full reset
+temporal_mini_race_duration_s = 6 # Mini-race duration
 
-clip_grad_value = 1000
-clip_grad_norm = 30
+LC_punish_line = 44700 # Punish the AI for having a position.x value greater than this value
+LC_punish_rate = 0 # Multiplied by constant_reward_per_action
+Mushroom_point = 4.29
 
-# Number of state-action pairs we train before updating the Target Network as defined by DQN.
-number_memories_trained_on_between_target_network_updates = 2048
-soft_update_tau = 0.02
+# mushroom points for each track (because these are annoying to collect, and will be useful in the future for multi-track training)
+all_mushroom_points = {"LC": 4.65, "rBC":4.17, "rMC3":4.63, "rGV2":4.29}
 
-# Helper values
+game_reboot_interval = 3600 * 7  # Restart dolphin every x seconds
+running_speed = 80 # UNUSED; Remove from GameManager instantiation
+
+# race not completed in time
+cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 300 # in seconds
+# No progress has been made
+cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 8 # in seconds
+
+# TODO: Do not save runs more than 10% slower than PB time. (save percentage value as variable here)
+# Do not save runs until after we start getting roughly human-level results (i.e. prevent saving 1000s of extra bad runs) -- Currently disabled
+frames_before_save_best_runs = 250_000
+
+# Values to detect the agent going the wrong way
 distance_between_checkpoints = 300
 road_width = 30000
 max_allowable_distance_to_virtual_checkpoint = np.sqrt((distance_between_checkpoints / 2) ** 2 + (road_width / 2) ** 2)
@@ -279,37 +184,59 @@ max_allowable_distance_to_virtual_checkpoint = np.sqrt((distance_between_checkpo
 timeout_during_run_ms = 10_100
 timeout_between_runs_ms = 600_000_000
 tmi_protection_timeout_s = 500
-game_reboot_interval = 3600 * 7  # In seconds
 
-# Do not save runs until after we start getting roughly human-level results (i.e. prevent saving 1000s of extra bad runs)
-# (Likely unnecessary due to large gaps in improvement times at start of training)
-frames_before_save_best_runs = 250_000
+oversample_long_term_steps = 40
+oversample_maximum_term_steps = 5
 
-plot_race_time_left_curves = False
-n_transitions_to_plot_in_distribution_curves = 1000
-make_highest_prio_figures = False
-apply_randomcrop_augmentation = False
-n_pixels_to_crop_on_each_side = 2
+temporal_mini_race_duration_f = game_running_fps * temporal_mini_race_duration_s
+temporal_mini_race_duration_actions = temporal_mini_race_duration_f // f_per_action
+min_horizon_to_update_priority_actions = temporal_mini_race_duration_actions - 40
+# If mini_race_time == mini_race_duration this is the end of the minirace
+margin_to_announce_finish_meters = 700
 
-max_rollout_queue_size = 1
+use_race_restart = False
+restart_race_command = "restart_race" # can use basically anything so long as it doesn't conflict with a savestate filename.
 
-use_jit = True
+"""
+REWARD SETTINGS
+"""
 
-# gpu_collectors_count is the number of Dolphin instances that will be launched in parallel.
-# It is recommended that users adjust this number depending on the performance of their machine.
-# We recommend trying different values and finding the one that maximises the number of batches done per unit of time.
-# Note that each additional instance requires a separate folder containing a full Dolphin installation, and should be named sequentially.
-# (Dolphin's game save files cannot be shared between instances)
-# For instance, if the original install is called 'dolphin_folder', installations 2 and 3 should be named 'dolphin_folder2' and 'dolphin_folder3'.
-gpu_collectors_count = 6
+"""
+It is recommended to work with standardized values for the inputs of the neural network.
+The same recommendation holds for the output of the neural network.
+Since the neural network outputs returns, you want your returns to be somewhat normalized.
+What does this mean?
 
-# Every n batches, each collection process updates it's network to match the current Online Network as defined by DQN
-send_shared_network_every_n_batches = 10
-update_inference_network_every_n_actions = 20
+It means that when the agent plays well in a favorable scenario, returns should be somewhere around 2.
+If the agent plays bad in an unfavorable scenario, returns should be somewhere around -2.
+If the agent plays neither good neither bad, returns should be around 0.
 
-target_self_loss_clamp_ratio = 4
+For Trackmania, we could say that
+"playing well" is being able to achieve 300km/h on average.  We can calculate the theoretical returns obtained by the agent and make sure it's around 2.
+"playing bad" is achieving 100km/h on average. We can calculate the theoretical returns obtained by the agent and make sure it's around -2.
 
+However, we had a bump in performance when the range was -3 to -7 than when the range was +2 to -2 in Trackmania.
+We still do not understand why. There's no theoretical reason for this...
+"""
+# Lower bound of rewards
+constant_reward_per_action = -7 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
 
+# Expected average speed of 100 units per frame (u/f)
+# VCP distance of 300 units, normalized by vcp generation code ( Thank you pb4 & Agade :) )
+# 60fps (internal, unaffected by game_running_speed)
+# 6000 u/s for doing well, 6000/300 = 20 VCPs per s (Note that VCPs are not on the optimal lines, thus effective speed is higher than 100u/f)
+expected_vcp_passed_per_s = 20
+# +4 reward over the course of a minirace for driving well (passing VCPs)
+reward_per_vcp_passed = 4 / (expected_vcp_passed_per_s * temporal_mini_race_duration_s)
+
+expected_lap_duration_s = 55 # This value controls the amount of reward given for the start slide
+expected_lap_duration_per_action = expected_lap_duration_s * (game_running_fps / f_per_action) # at 60 fps
+average_lap_increment_per_action = 1 / expected_lap_duration_per_action
+total_second_increment_expected = 3 / (expected_lap_duration_s * 3 / temporal_mini_race_duration_s)
+
+reward_per_m_advanced_along_centerline = 4 / total_second_increment_expected # Value is used only for start-slide
+
+# Reward for being close to VCPs
 shaped_reward_dist_to_cur_vcp = -0.0005
 shaped_reward_min_dist_to_cur_vcp = 2
 shaped_reward_max_dist_to_cur_vcp = 25
@@ -317,12 +244,61 @@ engineered_reward_min_dist_to_cur_vcp = 900 # max reward
 engineered_reward_max_dist_to_cur_vcp = 5000 # minimum reward
 shaped_reward_point_to_vcp_ahead = 0
 
-threshold_to_save_all_runs_ms = -1
+"""(0, 1 * -constant_reward_per_action), # 2 per action
+    (50_000, 1 * -constant_reward_per_action),
+    (500_000 * global_schedule_speed, 0.8 * -constant_reward_per_action),
+    (3_000_000 * global_schedule_speed, 0.4 * -constant_reward_per_action),
+    (5_000_000 * global_schedule_speed, 0 * -constant_reward_per_action),"""
+engineered_close_to_vcp_reward_schedule = [
+    (0, 0)
+]
+# Punish A.I. for using an item as a ratio multiplier to progress made during boost
+engineered_item_usage_reward_schedule = [
+    (0, 0),
+]
+engineered_supergrinding_reward_schedule = [
+    (0, 0),
+]
 
-deck_height = -np.inf
-game_camera_number = 2
+# Average EV expected for an AI that is not doing bad or good
+expected_average_external_velocity = 20
+# give +2 reward total for the duration of a mini-race for good performance
+external_velocity_reward_per_f = (2 / temporal_mini_race_duration_actions) / expected_average_external_velocity
+# Reward maintaining ev based on an average of 60 as being optimized
+engineered_external_velocity_reward_schedule = [
+    (0, 0),
+]
 
-sync_virtual_and_real_checkpoints = True
+# ---------------------------------------------------
+
+# Reward A.I. for accelerating -- obsolete. completely unnecessary.
+engineered_holding_A_reward_schedule = [
+    (0, 2),
+    (50_000, 2),
+    (300_000 * global_schedule_speed, 1),
+    (3_000_000 * global_schedule_speed, 0),
+]
+
+# likely obsolete. Very likely unnecessary.
+engineered_start_boost_charge_reward_schedule = [
+    (0, 0),
+]
+
+
+# Tensorboard settings
+plot_race_time_left_curves = False
+n_transitions_to_plot_in_distribution_curves = 1000
+make_highest_prio_figures = False
+apply_randomcrop_augmentation = False
+n_pixels_to_crop_on_each_side = 2
+
+max_rollout_queue_size = 1 # Unknown
+
+use_jit = True
+
+threshold_to_save_all_runs_ms = -1 # unused
+
+sync_virtual_and_real_checkpoints = True # likely unused
 
 """ 
 ============================================      MAP CYCLE     =======================================================
@@ -350,8 +326,6 @@ map_cycle = [
     repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", False, True), 1),
 ]
 """
-
-# TODO: Add expected race times to balance return (goal is ranging from 2 for good run to -2 for bad, 0 being average (i.e expected) time)
 
 nadeo_maps_to_train_and_test = [
     "A01-Race",
