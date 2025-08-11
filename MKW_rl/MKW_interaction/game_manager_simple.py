@@ -386,6 +386,8 @@ class GameManager:
 
             pc6 = time.perf_counter_ns()
             instrumentation__grab_floats += pc6 - pc5
+            # TODO: Check relative zone center positions to ensure reasonable data is being sent
+            # TODO: Convert zone center positions to be relative to the vehicle's rotation
             state_zone_center_coordinates_in_car_reference_system = zone_centers[
                 current_zone_idx : current_zone_idx
                 + config_copy.one_every_n_zone_centers_in_inputs
@@ -442,7 +444,7 @@ class GameManager:
                 
                 end_race_stats["race_finished"] = False
                 end_race_stats["race_time_for_ratio"] = race_time_for_ratio
-                end_race_stats["race_time"] = config_copy.cutoff_rollout_if_race_not_finished_within_duration_f
+                end_race_stats["race_time"] = config_copy.cutoff_rollout_if_race_not_finished_within_duration_f / config_copy.game_running_fps
 
                 end_race_stats["instrumentation__answer_normal_step"] = (instrumentation__answer_normal_step / race_time_for_ratio * 50)
                 end_race_stats["instrumentation__answer_action_step"] = (instrumentation__answer_action_step / race_time_for_ratio * 50)
