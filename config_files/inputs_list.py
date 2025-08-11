@@ -27,7 +27,7 @@ class GCInputs(TypedDict, total=False):
     TriggerRight: float
 
 """
-When creating a list of inputs, several considerations must be made to help reduce the amount of options available to the ai.
+When creating a list of inputs, several considerations must be made to help reduce the amount of options available to the agent.
 This algorithm uses discrete inputs. It only chooses one option out of the following list to perform for any given frame.
 Thus, too many inputs will complicate the network and at some point slow down training in theory. Testing needs to be done to find the amount of slowdown, if any.
 For now (e.g. until I get around to testing it), it is recommended to keep the number of input combinations to below 20.
@@ -36,9 +36,9 @@ Therefore, when selecting inputs, consider the following:
     1. Soft-drifting charges a mini-turbo at the fastest rate while turning the least amount. This value is -3 and 3 for left and right respectively and should be present as an option in the inputs for optimized times.
     2. Using an item rarely needs to use more than one input for Time Trials, as you can simply match what should be pressed when a given track's shroom strat happens.
     3. Only the inputs deviating from the default state need to be present (i.e the 'X' and 'Y' buttons are never used, so they are omitted), however all used buttons should be present in all states.
-    4. No non-accelerating inputs are necessary as drift inputs do not contribute to the start boost charge.
-    5. More stick options will likely give small improvements to times, although human WRs rarely use them, if at all. Remains to be tested.
-        (Note that the base game simplifies down to 15 unique values for steering, ranging from -7 to 7)
+    4. At least one Non-accelerating input should be present so the AI can learn to perform the start boost.
+    5. More stick options may give small improvements to times, although human WRs rarely use them, if at all. Remains to be tested.
+        (Note that the base game simplifies down to 15 unique values for steering on each axis, ranging from -7 to 7)
     6. It may be useful on certain tracks to cancel wheelies with D-pad down, on tracks such as rPB, rSL, and rBC, but I forgot where I found this information.
 """
 
