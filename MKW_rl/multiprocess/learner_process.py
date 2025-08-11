@@ -403,6 +403,7 @@ def learner_process_fn(
             accumulated_stats["alltime_min_ms"][map_name] = end_race_stats["race_time"]
             if accumulated_stats["cumul_number_frames_played"] > config_copy.frames_before_save_best_runs:
                 name = f"{map_name}_{end_race_stats['race_time']:.3f}"
+                # TODO: Copy ghost file to best run folder
                 utilities.save_run(
                     base_dir,
                     save_dir / "best_runs" / name,
@@ -727,16 +728,16 @@ def learner_process_fn(
             mean_in_buffer = state_floats.mean(axis=0)
             std_in_buffer = state_floats.std(axis=0)
 
-            print("Raw mean in buffer  :", mean_in_buffer.round(1))
-            print("Raw std in buffer   :", std_in_buffer.round(1))
+            print("Raw mean in buffer  :", mean_in_buffer.round(4))
+            print("Raw std in buffer   :", std_in_buffer.round(4))
             print("")
             print(
                 "Corr mean in buffer :",
-                ((mean_in_buffer - MKW_data_translate.float_input_mean) / MKW_data_translate.float_input_deviation).round(1),
+                ((mean_in_buffer - MKW_data_translate.float_input_mean) / MKW_data_translate.float_input_deviation).round(4),
             )
             print(
                 "Corr std in buffer  :",
-                (std_in_buffer / MKW_data_translate.float_input_deviation).round(1),
+                (std_in_buffer / MKW_data_translate.float_input_deviation).round(4),
             )
             print("")
 
