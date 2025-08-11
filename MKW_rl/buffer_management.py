@@ -93,15 +93,6 @@ def fill_buffer_from_rollout_with_n_steps_rule(
             # LUIGI CIRCUIT FORCE SHORTCUT
             if rollout_results["state_float"][i]["kart_data"]["position"][2] > config_copy.LC_punish_line:
                 reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate # TODO: Set this value in the map cycle?
-
-            """ if i < n_frames - 1:
-                if engineered_close_to_vcp_reward != 0:
-                    reward_into[i] += engineered_close_to_vcp_reward * np.interp(max(config_copy.engineered_reward_min_dist_to_cur_vcp,
-                            min(config_copy.engineered_reward_max_dist_to_cur_vcp, np.linalg.norm(rollout_results["state_float"][i]["relative_zone_centers"][0])),
-                        ),
-                        [config_copy.engineered_reward_min_dist_to_cur_vcp, config_copy.engineered_reward_max_dist_to_cur_vcp],
-                        [0.5, -1]
-                    ) # normalizing to 1, -1 using np.interp so when we multiply by engineered reward we are reasonable """
                 
         if i < n_frames - 1: # apply these rewards unless this is the finish frame
             """if config_copy.final_speed_reward_per_f_per_s != 0:
@@ -129,6 +120,14 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 if (rollout_results["state_float"][i]["boost_data"]["shroom_boost"] > 60
                     and temp_completion_reward > 0):
                     temp_completion_reward = temp_completion_reward * 1 # 0.6 (40% discount for speed increase) divided by 30/90 as we can't confirm source of boost outside that range"""
+                
+                if engineered_close_to_vcp_reward != 0:
+                    reward_into[i] += np.interp(max(config_copy.engineered_reward_min_dist_to_cur_vcp,
+                            min(config_copy.engineered_reward_max_dist_to_cur_vcp, np.linalg.norm(rollout_results["state_float"][i]["relative_zone_centers"][0])),
+                        ),
+                        [config_copy.engineered_reward_min_dist_to_cur_vcp, config_copy.engineered_reward_max_dist_to_cur_vcp],
+                        [0.5, -1] # normalizing to 1, -1 using np.interp so when we multiply by engineered reward we are reasonable
+                    ) * (1 / config_copy.temporal_mini_race_duration_actions) * engineered_close_to_vcp_reward
             
                 reward_into[i] += temp_completion_reward
                 # reward_into_progress[i] += temp_completion_reward
