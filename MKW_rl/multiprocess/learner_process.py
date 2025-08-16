@@ -394,10 +394,10 @@ def learner_process_fn(
             temp_rollout_results = rollout_results.copy()
             for i in range(len(temp_rollout_results["actions"])):
                 # print("WEEUMS", temp_rollout_results["actions"][i])
-                if temp_rollout_results["actions"][i] == np.intp(6):
+                if temp_rollout_results["actions"][i] == np.intp(config_copy.action_item_index):
                     # print("attempting to use an item:", temp_rollout_results["state_float"][i]["race_data"]["item_count"], ":", math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)))
                     if temp_rollout_results["state_float"][i]["race_data"]["item_count"] <= math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.Mushroom_point)):
-                        temp_rollout_results["actions"][i] = np.intp(2) # swap action idx to non-item usage one
+                        temp_rollout_results["actions"][i] = np.intp(config_copy.action_item_denied_index) # swap action idx to non-item usage one
                         # print("Prevented item:", temp_rollout_results["state_float"][i]["race_data"]["item_count"], "While max is:", math.floor(-(temp_rollout_results["state_float"][i]["race_data"]["race_completion_max"] - config_copy.LC_mushroom_point)))
             # This is a new alltime_minimum
             accumulated_stats["alltime_min_ms"][map_name] = end_race_stats["race_time"]

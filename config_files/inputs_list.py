@@ -80,7 +80,7 @@ Stick value conversion for GCInputs:
     (1) 60-68 (-6) > -0.5
     (0) 0-59 (-7) > -1 - Full Left
 
-Note that all of the values must use the range of -1 to 1 for the inputs list. (I learned this the hard way lol)
+Note that all of the values must use the range of -1 to 1 for the inputs list.
 Chart based on this document: https://docs.google.com/document/d/e/2PACX-1vSM96Kykn6ILXsJD42gD3T71GJ_tiUGtHE8afTjqXX-Y2sxrXfHWuSNPHplKPt0IEvv0BNsHemluEIS/pub#h.jhvf61tw73t8
 """
 
@@ -94,7 +94,7 @@ defaultInputState: GCInputs = {
     "TriggerRight": 0
 }
 
-# Adjust for individual tracks for item usage or other things
+# Adjust for individual tracks for item usage and other specific inputs
 inputs = [
     {  # 0 Forward
         "A": True,
@@ -150,136 +150,14 @@ inputs = [
         "StickY": 0,
         "TriggerLeft": 0,
     },
-    {  # 6 Drift full right item # Adjust for individual tracks based on item usage
-        "StickX": 1,
+    {  # 6 Straight item # Adjust for individual tracks based on item usage
+        "StickX": 0,
         "A": True,
-        "TriggerRight": 1,
+        "TriggerRight": 0,
         "TriggerLeft": 1,
         "B": False,
         "Up": False,
-        "StickY": 0,
-    },
-    {  # 7 Full left
-        "StickX": -1,
-        "A": True,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 8 Full right
-        "StickX": 1,
-        "A": True,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 9 Trick full right
-        "Up": True,
-        "A": True,
-        "B": False,
-        "StickX": 1,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 10 Trick straight
-        "Up": True,
-        "A": True,
-        "B": False,
-        "StickX": 0,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 11 Trick full left
-        "StickX": -1,
-        "Up": True,
-        "A": True,
-        "B": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 12 No accel full right (Start boost/start slide) # 
-        "A": False,
-        "B": False,
-        "Up": False,
-        "StickX": 1,
-        "StickY": 0,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-]
-
-"""
-# Adjust for individual tracks for item usage or other things
-inputs = [
-    {  # 0 Forward
-        "A": True,
-        "B": False,
-        "Up": False,
-        "StickX": 0,
         "StickY": 1,
-        "TriggerLeft": 0,
-        "TriggerRight": 0
-    },
-    {  # 1 Drift full left
-        "A": True,
-        "StickX": -1,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
-    {  # 2 Drift full right
-        "StickX": 1,
-        "A": True,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
-    {  # 3 Drift slight left (-1)
-        "A": True,
-        "StickX": -0.156,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
-    {  # 4 Drift slight right (1)
-        "A": True,
-        "StickX": 0.22,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
-    {  # 5 Drift straight
-        "A": True,
-        "TriggerRight": 1,
-        "B": False,
-        "Up": False,
-        "StickX": 0,
-        "StickY": 0,
-        "TriggerLeft": 0,
-    },
-    {  # 6 Drift full right item # Adjust for individual tracks based on item usage
-        "StickX": 1,
-        "A": True,
-        "TriggerRight": 1,
-        "TriggerLeft": 1,
-        "B": False,
-        "Up": False,
-        "StickY": 0,
     },
     {  # 7 Full left
         "StickX": -1,
@@ -326,17 +204,28 @@ inputs = [
         "TriggerLeft": 0,
         "TriggerRight": 0
     },
-    {  # 12 No accel full left (Start boost/start slide) # 
+    {  # 12 No accel full right (Start boost/start slide)
         "A": False,
         "B": False,
         "Up": False,
-        "StickX": -1,
+        "StickX": 1,
         "StickY": 0,
         "TriggerLeft": 0,
         "TriggerRight": 0
     },
+    {  # 13 Trick drift full right
+        "A": True,
+        "B": False,
+        "Up": True,
+        "StickX": 1,
+        "StickY": 0,
+        "TriggerLeft": 0,
+        "TriggerRight": 1
+    },
 ]
-"""
 
 action_forward_idx = 0  # Accelerate forward, don't turn
-action_backward_idx = 11  # Don't move, don't turn
+action_backward_idx = 12  # Don't move, turn right
+
+action_item_index = 6 # Use the item
+action_item_denied_index = 0 # Replacement index for illegal mushroom usage
