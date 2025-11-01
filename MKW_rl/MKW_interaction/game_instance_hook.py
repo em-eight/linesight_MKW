@@ -50,11 +50,12 @@ class GameInstanceHook():
         self.ghost_saved = False
         self.waiting_for_rkg = False
         self.rkg_timer = 0
+        self.closing = False
 
     def end_framedrawn_handling(self, width, height, data):
-        pass
+        return
     def end_frameadvance_handling(self):
-        pass
+        return
 
     def framedrawn_handler(self, width, height, data):
         # print(width, height)
@@ -123,7 +124,9 @@ class GameInstanceHook():
             socket_data = pickle.loads(self.conn.recv(256))
         except Exception as e:
             # print(e)
-            print("Closing socket and exiting")
+            if not self.closing:
+                print("Closing socket and exiting")
+                self.closing = True
             self.close()
             event.on_framedrawn(self.end_framedrawn_handling)
             event.on_frameadvance(self.end_frameadvance_handling)
