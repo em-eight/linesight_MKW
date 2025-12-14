@@ -269,16 +269,16 @@ def learner_process_fn(
         weight_decay = config_copy.weight_decay_lr_ratio * learning_rate
 
         # Construct annealing reward schedules
-        engineered_button_A_pressed_reward = utilities.from_linear_schedule(
-            config_copy.engineered_holding_A_reward_schedule,
+        engineered_airtime_reward = utilities.from_linear_schedule(
+            config_copy.engineered_airtime_reward_schedule,
             accumulated_stats["cumul_number_frames_played"],
         )
-        engineered_item_usage_reward = utilities.from_linear_schedule(
-            config_copy.engineered_item_usage_reward_schedule,
+        engineered_trick_reward = utilities.from_linear_schedule(
+            config_copy.engineered_trick_reward_schedule,
             accumulated_stats["cumul_number_frames_played"],
         )
-        engineered_supergrinding_reward = utilities.from_linear_schedule(
-            config_copy.engineered_supergrinding_reward_schedule, accumulated_stats["cumul_number_frames_played"]
+        engineered_external_velocity_reward = utilities.from_linear_schedule(
+            config_copy.engineered_external_velocity_reward_schedule, accumulated_stats["cumul_number_frames_played"]
         )
         engineered_close_to_vcp_reward = utilities.from_linear_schedule(
             config_copy.engineered_close_to_vcp_reward_schedule, accumulated_stats["cumul_number_frames_played"]
@@ -445,10 +445,11 @@ def learner_process_fn(
                 config_copy.n_steps,
                 gamma,
                 config_copy.discard_non_greedy_actions_in_nsteps,
-                engineered_item_usage_reward,
-                engineered_button_A_pressed_reward,
-                engineered_supergrinding_reward,
+                0,
+                engineered_airtime_reward,
+                engineered_external_velocity_reward,
                 engineered_close_to_vcp_reward,
+                engineered_trick_reward,
             )
             """engineered_button_A_pressed_reward,
                 engineered_item_usage_reward,
@@ -513,7 +514,7 @@ def learner_process_fn(
                     loss, _ = trainer.train_on_batch(buffer_test, do_learn=False)
                     time_testing_since_last_tensorboard_write += time.perf_counter() - test_start_time
                     loss_test_history.append(loss)
-                    print(f"BT   {loss=:<8.2e}")
+                    # print(f"BT   {loss=:<8.2e}")
                 else:
                     train_start_time = time.perf_counter()
                     loss, grad_norm = trainer.train_on_batch(buffer, do_learn=True)

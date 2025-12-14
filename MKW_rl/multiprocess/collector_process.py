@@ -22,7 +22,7 @@ def collector_process_fn(
     uncompiled_shared_network,
     shared_network_lock,
     game_spawning_lock,
-    shared_steps: mp.Value, # type: ignore # because it's fine at runtime so i wish to be rid of the warning
+    shared_steps: mp.Value, # type: ignore
     base_dir: Path,
     save_dir: Path,
     tmi_port: int,
