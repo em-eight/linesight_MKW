@@ -22,7 +22,6 @@ HOST = "127.0.0.1"
 FRAME_WIDTH = 611
 FRAME_HEIGHT = 456
 
-# Assuming that this function will work unmodified despite changes to the magnitude of zone spacings
 # @numba.njit
 def update_current_zone_idx(
     current_zone_idx: int,
@@ -331,12 +330,14 @@ class GameManager:
 
             pc3 = time.perf_counter_ns()
             self.sock.sendall(pickle.dumps([True, True, computed_action, ""]))
-            # The following line brought to you by literal hours of trying to figure things out only to realize I just needed two functions that I could've just copied from the original code
-            # TODO: ADD LOOP TO RECEIVE ALL FRAME DATA WHOOPIEEEEE
+            
             raw_frame_data = bytearray()
             data_length = FRAME_WIDTH * FRAME_HEIGHT * 3
             while len(raw_frame_data) < data_length:
-                packet = self.sock.recv(data_length - len(raw_frame_data))
+                try:
+                    packet = self.sock.recv(data_length - len(raw_frame_data))
+                except Exception as e:
+                    print("Error receiving frame data:", e)
                 if not packet:
                     print("Error receiving frame data")
                     break
@@ -367,12 +368,14 @@ class GameManager:
             # print("Game data converted to:", network_inputs.get_flattened_game_data())
             race_time = max([game_data["race_data"]["race_time"], 1e-12]) # Epsilon trick to avoid division by zero
 
-            current_zone_idx = update_current_zone_idx(
-                current_zone_idx,
-                zone_centers,
-                game_data["kart_data"]["position"],
-                config_copy.max_allowable_distance_to_virtual_checkpoint,
-            )
+            if game_data["kart_data"]["respawn_timer"] <= 0 and game_data["kart_data"]["time_in_respawn"] <= 0:
+                # Do not update current zone while in a respawn
+                current_zone_idx = update_current_zone_idx(
+                    current_zone_idx,
+                    zone_centers,
+                    game_data["kart_data"]["position"],
+                    config_copy.max_allowable_distance_to_virtual_checkpoint,
+                )
 
             if current_zone_idx > rollout_results["furthest_zone_idx"]:
                 last_progress_improvement_f = frames_processed
