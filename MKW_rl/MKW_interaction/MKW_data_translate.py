@@ -156,6 +156,17 @@ float_input_mean = [
     0, # StickY
     0.5, # TriggerLeft
     0.5, # TriggerRight
+    # Extra previous inputs for drifting
+    0.5, # TriggerRight
+    0.5, # TriggerRight
+    0.5, # TriggerRight
+    0.5, # TriggerRight
+    0.5, # TriggerRight
+    0.5, # TriggerRight
+    0.5, # TriggerRight
+    0.5, # TriggerRight
+    0.5, # TriggerRight
+    0.5, # TriggerRight
     # End ugly ugly input listing
     75, # mt_charge
     0, # mt_charge_full
@@ -376,6 +387,17 @@ float_input_deviation = [
     2, # StickY
     1, # TriggerLeft
     1, # TriggerRight
+    # Extra previous inputs for drifting
+    1, # TriggerRight
+    1, # TriggerRight
+    1, # TriggerRight
+    1, # TriggerRight
+    1, # TriggerRight
+    1, # TriggerRight
+    1, # TriggerRight
+    1, # TriggerRight
+    1, # TriggerRight
+    1, # TriggerRight
     # End ugly ugly input list
     270, # mt_charge
     1, # mt_charge_full
@@ -591,6 +613,10 @@ class Network_Inputs():
         for dictionary in previous_actions:
             for value in dictionary.values():
                 unwrapped_actions.append(value)
+        # Add extra drift button inputs
+        for k in range(len(self.previous_actions_idx) - config_copy.n_prev_actions_in_inputs - config_copy.n_prev_drift_actions_in_inputs,
+                       len(self.previous_actions_idx) - config_copy.n_prev_actions_in_inputs):
+            unwrapped_actions.append(config_copy.inputs[self.previous_actions_idx[k] if k >= 0 else config_copy.action_forward_idx]["TriggerRight"])
         
         return unwrapped_actions
 
