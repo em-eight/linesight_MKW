@@ -52,12 +52,12 @@ def buffer_collate_function(batch):
     (
         state_img,
         state_float,
-        # state_potential,
+        state_potential,
         action,
         rewards,
         next_state_img,
         next_state_float,
-        # next_state_potential,
+        next_state_potential,
         gammas,
         terminal_actions,
         n_steps,
@@ -67,12 +67,12 @@ def buffer_collate_function(batch):
             [
                 "state_img",
                 "state_float",
-                # "state_potential",
+                "state_potential",
                 "action",
                 "rewards",
                 "next_state_img",
                 "next_state_float",
-                # "next_state_potential",
+                "next_state_potential",
                 "gammas",
                 "terminal_actions",
                 "n_steps",
@@ -95,9 +95,7 @@ def buffer_collate_function(batch):
     state_float[:, 0] = temporal_mini_race_current_time_actions
     if config_copy.use_miniraces:
         temporal_mini_race_next_time_actions = temporal_mini_race_current_time_actions + n_steps
-        # temporal_mini_race_next_time_actions = np.full_like(temporal_mini_race_current_time_actions, config_copy.temporal_mini_race_duration_actions / 2)
         next_state_float[:, 0] = temporal_mini_race_next_time_actions
-        # next_state_float[:, 0] = temporal_mini_race_current_time_actions
     else:
         temporal_mini_race_next_time_actions = np.full_like(temporal_mini_race_current_time_actions, config_copy.temporal_mini_race_duration_actions / 2)
         next_state_float[:, 0] = temporal_mini_race_current_time_actions
@@ -115,8 +113,8 @@ def buffer_collate_function(batch):
 
     rewards = np.take_along_axis(rewards, possibly_reduced_n_steps[:, None] - 1, axis=1).squeeze(-1)
 
-    # rewards += np.where(terminal, 0, gammas * next_state_potential)
-    # rewards -= state_potential
+    rewards += np.where(terminal, 0, gammas * next_state_potential)
+    rewards -= state_potential
 
     state_img, state_float, action, rewards, next_state_img, next_state_float, gammas = tuple(
         map(
