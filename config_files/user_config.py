@@ -27,7 +27,7 @@ linux_launch_game_path = "/Build/Binaries/dolphin-emu"
 
 # Communication port for the first Dolphin instance that will be launched.
 # If using multiple instances, the ports used will be base_tmi_port + 1, +2, +3, etc...
-base_tmi_port = 8478
+base_tmi_port = 12478
 
 # If on windows, name of the TMLoader profile that with launch TmForever + TMInterface
 # --Unused for this project
