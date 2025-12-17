@@ -9,7 +9,7 @@ During training, config_copy.py will be reloaded at regular time intervals.
 config_copy.py is NOT tracked in git, as it is essentially a temporary file.
 You must manually copy config.py into config_copy.py to apply changes mid-training
 
-Training parameters modifications made during training in config_copy.py will be applied on the fly
+Training parameter modifications made during training in config_copy.py will be applied on the fly
 without losing the existing content of the replay buffer.
 
 The content of config.py may be modified after starting a run: it will have no effect on the ongoing run.
@@ -27,7 +27,7 @@ from config_files.user_config import *
 W_downsized = 153
 H_downsized = 114
 
-run_name = "rGV2_spectral_norm"
+run_name = "rMC_regular"
 
 # gpu_collectors_count is the number of Dolphin instances that will be launched in parallel.
 # It is recommended that users adjust this number depending on the performance of their machine.
@@ -35,7 +35,7 @@ run_name = "rGV2_spectral_norm"
 # Note that each additional instance requires a separate folder containing a full Dolphin installation, and should be named sequentially.
 # (Dolphin's game save files cannot be shared between instances)
 # For instance, if the original install is called 'dolphin_folder', installations 2 and 3 should be named 'dolphin_folder2' and 'dolphin_folder3'.
-gpu_collectors_count = 6
+gpu_collectors_count = 4
 
 global_schedule_speed = 1.5
 n_steps = 3
@@ -55,18 +55,28 @@ n_zone_centers_extrapolate_after_end_of_map = 500
 n_zone_centers_extrapolate_before_start_of_map = 20
 
 n_prev_actions_in_inputs = 5
+n_prev_drift_actions_in_inputs = 10
 
-# Numper of game_data points + (7 (number of input buttons in each input) * number of previous actions) + (3 * n zone centers)
-float_input_dim = 56 + 7 * n_prev_actions_in_inputs + 3 * n_zone_centers_in_inputs
+# Numper of game_data points + (7 (number of input buttons in each input) * number of previous actions) + number of previous drift inputs + (3 * n zone centers)
+float_input_dim = 56 + 7 * n_prev_actions_in_inputs + n_prev_drift_actions_in_inputs + 3 * n_zone_centers_in_inputs
 
 float_hidden_dim = 256
 conv_head_output_dim = 5280
-dense_hidden_dimension = 1024
+dense_hidden_dimension = 512
 iqn_embedding_dimension = 64
 iqn_n = 8  # must be an even number because we sample tau symmetrically around 0.5
 iqn_k = 32  # must be an even number because we sample tau symmetrically around 0.5
 iqn_kappa = 5e-3
 use_ddqn = False
+
+# TODO: convert to dictionary or list of layers to apply spectral norm to, and whether it is active in those layers
+use_spectral_norm = True
+
+# DOES NOT WORK
+use_munchausen_reward_augmentation = False
+munchausen_alpha = 0.0
+munchausen_temperature = 0.03
+munchausen_clip = -1.0
 
 prio_alpha = np.float32(0)  # Rainbow-IQN paper: 0.2, Rainbow paper: 0.5, PER paper 0.6
 prio_epsilon = np.float32(2e-3)  # Defaults to 10^-6 in stable-baselines
@@ -78,8 +88,9 @@ number_times_single_memory_is_used_before_discard = 32  # 32 // 4
 epsilon_schedule = [
     (0, 1),
     (50_000, 1),
-    (300_000, 0.1),
-    (3_000_000 * global_schedule_speed, 0.03),
+    (300_000, 0.15),
+    (3_000_000 * global_schedule_speed, 0.07),
+    (7_000_000 * global_schedule_speed, 0.03),
 ]
 epsilon_boltzmann_schedule = [
     (0, 0.15),
@@ -113,7 +124,7 @@ soft_update_tau = 0.02
 send_shared_network_every_n_batches = 10
 update_inference_network_every_n_actions = 20
 
-target_self_loss_clamp_ratio = 4
+target_self_loss_clamp_ratio = 2
 
 # Schedule how many state-action pairs we save in memory at specific sections of training
 memory_size_schedule = [
@@ -130,6 +141,17 @@ lr_schedule = [
     (12_000_000 * global_schedule_speed, 5e-5),
     (15_000_000 * global_schedule_speed, 1e-5),
 ]
+"""    (0, 1e-3),
+    (3_000_000 * global_schedule_speed, 2e-4),
+    (12_000_000 * global_schedule_speed, 2e-4),
+    (15_000_000 * global_schedule_speed, 1e-4),
+    (57_000_000, 1e-4),
+    (60_000_000, 5e-5),
+    (114_000_000, 5e-5),
+    (117_000_000, 1e-5),
+    (212_000_000, 1e-5),
+    (215_000_000, 5e-6),"""
+
 tensorboard_suffix_schedule = [
     (0, ""),
     (6_000_000 * global_schedule_speed, "_2"),
@@ -150,24 +172,32 @@ gamma_schedule = [
 # Mini-race disable commit:
 # https://github.com/Linesight-RL/linesight/commit/c171384c086714f465a7f71949dd047e497875a8
 
+munchausen_gamma = 0.993
+
 """
 RACE SETTINGS
 """
 
-temporal_mini_race_duration_s = 6 # Mini-race duration
+temporal_mini_race_duration_s = 7 # Mini-race duration
 
 LC_punish_line = 44700 # Punish the AI for having a position.x value greater than this value
-LC_punish_rate = 0 # Multiplied by constant_reward_per_action
-Mushroom_point = 4.29
+DC_punish_line_z = -1300
+DC_punish_line_x = -10000
+# Punish AI for entering illegal area (forcing shortcuts/correct mushroom usage)
+illegal_zone_punish_rate = 0
 
+rMC_drift_bonus_start = 0.32
+rMC_drift_bonus_end = 0.45
+
+Mushroom_point = 4.24
 # mushroom points for each track (because these are annoying to collect, and will be useful in the future for multi-track training)
 all_mushroom_points = {
     "LC": 4.65,
     "rBC":4.17,
     "rMC3":4.63,
-    "rGV2":4.29,
+    "rGV2":4.30,
     "rMR":4.29,
-    "DC": 4.15,
+    "DC": 4.18,
     "MMM": 4.38,
     "MC": 4.69,
     "CM": 4.27,
@@ -175,15 +205,16 @@ all_mushroom_points = {
     "rMC": 4.24,
     "rYF": 4.06,
     "rDH": 4.65,
+    "rWS": 4.36,
 }
 
 game_reboot_interval = 3600 * 7  # Restart dolphin every x seconds
-running_speed = 80 # UNUSED; Remove from GameManager instantiation
+running_speed = 80 # TODO: UNUSED; Remove from GameManager instantiation
 
 # race not completed in time
-cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 300 # in seconds
+cutoff_rollout_if_race_not_finished_within_duration_f = game_running_fps * 180 # in seconds
 # No progress has been made
-cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 8 # in seconds
+cutoff_rollout_if_no_vcp_passed_within_duration_f = game_running_fps * 10 # in seconds
 
 # TODO: Do not save runs more than 10% slower than PB time. (save percentage value as variable here)
 # Do not save runs until after we start getting roughly human-level results (i.e. prevent saving 1000s of extra bad runs) -- Currently disabled
@@ -236,37 +267,41 @@ We still do not understand why. There's no theoretical reason for this...
 constant_reward_per_action = -7 / (temporal_mini_race_duration_s * (game_running_fps / f_per_action))
 
 # Expected average speed of 100 units per frame (u/f)
-# VCP distance of 300 units, normalized by vcp generation code ( Thank you pb4 & Agade :) )
+# VCP distance of 300 units, normalized by vcp generation code ( Thank you pb4 & Agade :] )
 # 60fps (internal, unaffected by game_running_speed)
 # 6000 u/s for doing well, 6000/300 = 20 VCPs per s (Note that VCPs are not on the optimal lines, thus effective speed is higher than 100u/f)
 expected_vcp_passed_per_s = 20
+
 # +4 reward over the course of a minirace for driving well (passing VCPs)
 reward_per_vcp_passed = 4 / (expected_vcp_passed_per_s * temporal_mini_race_duration_s)
 
-expected_lap_duration_s = 55 # This value controls the amount of reward given for the start slide
+expected_lap_duration_s = 55 # This value controls the inverse amount of reward given for the start slide
 expected_lap_duration_per_action = expected_lap_duration_s * (game_running_fps / f_per_action) # at 60 fps
 average_lap_increment_per_action = 1 / expected_lap_duration_per_action
 total_second_increment_expected = 3 / (expected_lap_duration_s * 3 / temporal_mini_race_duration_s)
 
 reward_per_m_advanced_along_centerline = 4 / total_second_increment_expected # Value is used only for start-slide
 
-# Reward for being close to VCPs
-shaped_reward_dist_to_cur_vcp = -0.0005
-shaped_reward_min_dist_to_cur_vcp = 2
-shaped_reward_max_dist_to_cur_vcp = 25
-engineered_reward_min_dist_to_cur_vcp = 900 # max reward
-engineered_reward_max_dist_to_cur_vcp = 5000 # minimum reward
+reward_per_drift_boost_frame = 0 / temporal_mini_race_duration_actions # add reward for being in a drift boost
+
+# Shaped reward for being close to VCPs (Guaranteed to equal 0 over the course of the race)
+shaped_reward_dist_to_cur_vcp = -0.000
+shaped_reward_min_dist_to_cur_vcp = 1500
+shaped_reward_max_dist_to_cur_vcp = 9000
+engineered_reward_min_dist_to_cur_vcp = 900 # min distance
+engineered_reward_max_dist_to_cur_vcp = 9000 # max distance
 shaped_reward_point_to_vcp_ahead = 0
 
-"""(0, 1 * -constant_reward_per_action), # 2 per action
-    (50_000, 1 * -constant_reward_per_action),
-    (500_000 * global_schedule_speed, 0.8 * -constant_reward_per_action),
-    (3_000_000 * global_schedule_speed, 0.4 * -constant_reward_per_action),
-    (5_000_000 * global_schedule_speed, 0 * -constant_reward_per_action),"""
 engineered_close_to_vcp_reward_schedule = [
-    (0, 0)
+    (0, 0),
 ]
-# Punish A.I. for using an item as a ratio multiplier to progress made during boost
+"""(0, 5),
+    (1_000_000, 5),
+    (5_000_000, 3),
+    (8_000_000, 1),
+    (10_000_000, 0),"""
+
+# Punish A.I. for using an item as a ratio multiplier of progress made during boost
 engineered_item_usage_reward_schedule = [
     (0, 0),
 ]
@@ -274,27 +309,37 @@ engineered_supergrinding_reward_schedule = [
     (0, 0),
 ]
 
-# Average EV expected for an AI that is not doing bad or good
-expected_average_external_velocity = 20
-# give +2 reward total for the duration of a mini-race for good performance
-external_velocity_reward_per_f = (2 / temporal_mini_race_duration_actions) / expected_average_external_velocity
+# Average EV expected for average performance
+expected_average_external_velocity = 40
+# give +4 reward total for the duration of a mini-race for average performance
+external_velocity_reward_per_f = (0 / temporal_mini_race_duration_actions) / expected_average_external_velocity
 # Reward maintaining ev based on an average of 60 as being optimized
 engineered_external_velocity_reward_schedule = [
-    (0, 0),
+    (0, external_velocity_reward_per_f),
+    (15_000_000, external_velocity_reward_per_f),
+    (25_000_000, external_velocity_reward_per_f),
+    (50_000_000, external_velocity_reward_per_f),
+    (60_000_000, external_velocity_reward_per_f),
 ]
+
+expected_ev_punish_line = 0
+
+shaped_ev_reward_multiplier = 0
 
 # ---------------------------------------------------
+airtime_reward_per_action = 0
 
-# Reward A.I. for accelerating -- obsolete. completely unnecessary.
-engineered_holding_A_reward_schedule = [
-    (0, 2),
-    (50_000, 2),
-    (300_000 * global_schedule_speed, 1),
-    (3_000_000 * global_schedule_speed, 0),
+# Reward/Punish AI for being in the air
+engineered_airtime_reward_schedule = [
+    (0, airtime_reward_per_action),
+    (50_000, airtime_reward_per_action),
+    (15_000_000 * global_schedule_speed, airtime_reward_per_action),
+    (40_000_000 * global_schedule_speed, airtime_reward_per_action),
+    (50_000_000 * global_schedule_speed, airtime_reward_per_action),
 ]
 
-# likely obsolete. Very likely unnecessary.
-engineered_start_boost_charge_reward_schedule = [
+# Reward AI for performing a trick
+engineered_trick_reward_schedule = [
     (0, 0),
 ]
 
@@ -382,8 +427,8 @@ map_cycle = []
 
 
 map_cycle += [
-    repeat(("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", True, True), 4),
-    repeat(("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", False, True), 1),
+    # repeat(("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", True, True), 4),
+    # repeat(("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", False, True), 1),
     # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", True, True), 4),
     # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", False, True), 1),
     # repeat(("rMC3", "__slot__2", "rMC3.npy", True, True), 4), # Using __slot__X for dolphin save slots. Not recommended, as the save state depends on the dolphin save.
@@ -394,10 +439,6 @@ map_cycle += [
     # repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", False, True), 1),
     # repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", True, True), 4),
     # repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", False, True), 1),
-    # repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", True, True), 4),
-    # repeat(("rSGB", "linesight_savestates\\rSGB_R_Ph.sav", "rSGB.npy", False, True), 1),
-    # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", True, True), 4),
-    # repeat(("rSGB", "linesight_savestates\\rSGB_WL_Ph.sav", "rSGB.npy", False, True), 1),
     # repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", True, True), 4),
     # repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", False, True), 1),
     # repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", True, True), 4),
@@ -406,4 +447,26 @@ map_cycle += [
     # repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", False, True), 1),
     # repeat(("rMC3", "linesight_savestates/rMC3_D_MB_linux.sav", "rMC3.npy", True, True), 4),
     # repeat(("rMC3", "linesight_savestates/rMC3_D_MB_linux.sav", "rMC3.npy", False, True), 1),
+    # repeat(("rMR", "linesight_savestates/rMR_F_FR.sav", "rMR.npy", True, True), 4),
+    # repeat(("rMR", "linesight_savestates/rMR_F_FR.sav", "rMR.npy", False, True), 1),
+    # repeat(("DC", "linesight_savestates/DC_D_MB.sav", "DC.npy", True, True), 4),
+    # repeat(("DC", "linesight_savestates/DC_D_MB.sav", "DC.npy", False, True), 1),
+    # repeat(("rWS", "linesight_savestates/rWS_F_FR.sav", "rWS.npy", True, True), 4),
+    # repeat(("rWS", "linesight_savestates/rWS_F_FR.sav", "rWS.npy", False, True), 1),
+    # repeat(("MMM", "linesight_savestates/MMM_F_FR.sav", "MMM.npy", True, True), 4),
+    # repeat(("MMM", "linesight_savestates/MMM_F_FR.sav", "MMM.npy", False, True), 1),
+    # repeat(("MC", "linesight_savestates/MC_F_Sp.sav", "MC.npy", True, True), 4),
+    # repeat(("MC", "linesight_savestates/MC_F_Sp.sav", "MC.npy", False, True), 1),
+    # repeat(("flat", "linesight_savestates/Flat_F_SS_hopper.sav", "LC.npy", True, True), 3),
+    # repeat(("flat", "linesight_savestates/Flat_F_SS_hopper.sav", "LC.npy", False, True), 1),
+    # repeat(("LC", "linesight_savestates/LC_F_SS_shroom.sav", "LC.npy", True, True), 3),
+    # repeat(("LC", "linesight_savestates/LC_F_SS_shroom.sav", "LC.npy", False, True), 1),
+    # repeat(("rBP", "linesight_savestates/Baby_F_SS.sav", "LC.npy", True, True), 4),
+    # repeat(("rBP", "linesight_savestates/Baby_F_SS.sav", "LC.npy", False, True), 1),
+    # repeat(("rSGB", "linesight_savestates/SGB_W_Ph_linux.sav", "rSGB.npy", True, True), 4),
+    # repeat(("rSGB", "linesight_savestates/SGB_W_Ph_linux.sav", "rSGB.npy", False, True), 1),
+    # repeat(("rYF", "linesight_savestates/rYF_F_SS_hopper.sav", "rYF.npy", True, True), 4),
+    # repeat(("rYF", "linesight_savestates/rYF_F_SS_hopper.sav", "rYF.npy", False, True), 1),
+    repeat(("rMC", "linesight_savestates/rMC_F_FR_linux.sav", "rMC.npy", True, True), 4),
+    repeat(("rMC", "linesight_savestates/rMC_F_FR_linux.sav", "rMC.npy", False, True), 1),
 ]
