@@ -302,7 +302,7 @@ class GameManager:
             self.sock.sendall(pickle.dumps([False, False, computed_action, config_copy.restart_race_command]))
             self.sock.recv(128) # wait for dolphin to load the state before requesting actions
 
-        manual_item_count = 3
+        disable_rewards = False
         while not this_rollout_is_finished:
             """
             This loop needs to perform these essential functions:
@@ -361,15 +361,15 @@ class GameManager:
                 print("ERROR: Attempted to process intro camera state during rollout")
                 continue
             # print("Game manager rollout() :: race time is", game_data["race_data"]["race_time"])
-            if game_data["boost_data"]["shroom_boost"] > 86:
-                manual_item_count -= 1
 
-            game_data["race_data"]["item_count"] = manual_item_count
+            # game_data["race_data"]["item_count"] = manual_item_count
             # print("Game data converted to:", network_inputs.get_flattened_game_data())
             race_time = max([game_data["race_data"]["race_time"], 1e-12]) # Epsilon trick to avoid division by zero
 
-            if game_data["kart_data"]["respawn_timer"] <= 0 and game_data["kart_data"]["time_in_respawn"] <= 0:
-                # Do not update current zone while in a respawn
+            if game_data["kart_data"]["respawn_timer"] > 0 or game_data["kart_data"]["time_in_respawn"] > 0:
+                # Do not update current zone once a respawn occurs (disabling reward system)
+                disable_rewards = True
+            elif not disable_rewards:
                 current_zone_idx = update_current_zone_idx(
                     current_zone_idx,
                     zone_centers,
@@ -419,7 +419,7 @@ class GameManager:
             if computed_action["TriggerLeft"] != 0:
                 # pressing item button
                 # print("Items left:", manual_item_count, "While race is:", game_data["race_data"]["race_completion_max"])
-                if manual_item_count <= math.floor(-(game_data["race_data"]["race_completion_max"] - config_copy.Mushroom_point)):
+                if game_data["race_data"]["item_count"] <= math.floor(-(game_data["race_data"]["race_completion_max"] - config_copy.Mushroom_point)):
                     computed_action["TriggerLeft"] = 0 # Disable item button if mushroom usage is bad
                     # print("Prevented item:", manual_item_count, "While max is:", math.floor(-(game_data["race_data"]["race_completion_max"] - 4)))
 

@@ -147,13 +147,14 @@ class MKW_Interface():
 			"offroad_invincibility": self.kart_move.offroad_invincibility()
 		}
 	
+	# ONLY WORKS FOR THE NA REGION BECAUSE I DON'T HAVE THE ADDRESS FOR THE ITEM MANAGER FOR OTHER REGIONS
 	def get_item_count(self):
 		# Thanks to vαbol∂ and Blounard for helping locate and pythonically access item information addresses
-		return mkw_utils.chase_pointer(0x809c3618, [0x14, 0x00*0x248 + 0x90], 's32')
+		return mkw_utils.chase_pointer(0x809bee20, [0x14, 0x00*0x248 + 0x90], 's32')
 	
 	def get_item_type(self):
 		# Thanks to vαbol∂ and Blounard for helping locate and pythonically access item information addresses
-		return mkw_utils.chase_pointer(0x809c3618, [0x14, 0x00*0x248 + 0x8C], 's32')
+		return mkw_utils.chase_pointer(0x809bee20, [0x14, 0x00*0x248 + 0x8C], 's32')
 	
 	def convert_vec3(self, vector: hookvec3):
 		return vec3(vector.x, vector.y, vector.z)
