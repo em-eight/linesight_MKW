@@ -299,6 +299,7 @@ def learner_process_fn(
             buffer._sampler._alpha = config_copy.prio_alpha
             buffer._sampler._beta = config_copy.prio_beta
             buffer._sampler._eps = config_copy.prio_epsilon
+            buffer._sampler._lambda = config_copy.prio_uper_lam
 
         if config_copy.plot_race_time_left_curves and not is_explo and (loop_number // 5) % 17 == 0:
             race_time_left_curves(rollout_results, inferer, save_dir, map_name)

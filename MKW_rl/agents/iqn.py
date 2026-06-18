@@ -332,6 +332,8 @@ class Trainer:
                 q__stpo__target__quantiles_tau2, tau2 = self.target_network(
                     next_state_img_tensor, next_state_float_tensor, self.iqn_n, tau=None
                 )  # (batch_size*iqn_n, n_actions)
+                if config_copy.use_MINTO:
+                    q__stpo__online__quantiles_tau2, _ = self.online_network(next_state_img_tensor, next_state_float_tensor, self.iqn_n, tau=tau2)
 
             # Munchausen reward augmentation. or; bootstrap using current policy
             # This code does not work.
@@ -343,7 +345,7 @@ class Trainer:
                         print(f"{name}: shape={tuple(t.shape)} mean={t.mean():.6f} std={t.std():.6f} min={t.min():.6f} max={t.max():.6f}")
 
                     # Put q_targets_next into shape (batch, iqn_n, actions)
-                    q_targets_next = q__stpo__target__quantiles_tau2.reshape(self.batch_size, self.iqn_n, self.target_network.n_actions) # (batch_size, iqn_n, n_actions)
+                    q_targets_next = q__stpo__target__quantiles_tau2.reshape(self.iqn_n, self.batch_size, self.target_network.n_actions).transpose(0, 1) # (batch_size, iqn_n, n_actions)
 
                     # Average across quantiles
                     q_targets_next_average = q_targets_next.mean(dim=1) # average of the quantiles in shape (batch_size, actions)
@@ -360,7 +362,7 @@ class Trainer:
                     assert pi_target.shape == (self.batch_size, 1, self.target_network.n_actions), "pi target has wrong shape: {}".format(pi_target.shape)
 
                     q_pi_term = (pi_target * (q_targets_next - tau_log_pi_next)).sum(2) # (batch_size, iqn_n) # average across actions
-                    q_pi_term = q_pi_term * gammas_terminal.reshape(self.batch_size, self.iqn_n) # (batch_size, iqn_n)
+                    q_pi_term = q_pi_term * gammas_terminal.reshape(self.iqn_n, self.batch_size).t() # (batch_size, iqn_n)
                     # stats(pi_target.squeeze(1), "pi_target (per-action)")
 
                     if config_copy.use_ddqn:
@@ -383,38 +385,36 @@ class Trainer:
                     else:
                         q_target = (q_pi_term).unsqueeze(-1) # gamma ** iqn_n * q_pi_term # (batch_size, iqn_n, 1)
 
-                stats(q_pi_term, "q_pi_term")
+                    # stats(q_pi_term, "q_pi_term")
+
+                    q_current_online, tau = self.online_network(state_img_tensor, state_float_tensor, self.iqn_n, tau=None) # (batch_size * iqn_n, n_actions)
+                    
+                    q_curr_mean = q_current_online.reshape(self.iqn_n, self.batch_size, self.online_network.n_actions).mean(dim=0) # q_current_online_detached.mean(dim=1) # (batch_size, n_actions)
+                    # stats(q_curr_mean, "q_curr_mean")
+                    v_k_online = q_curr_mean.max(dim=1)[0].unsqueeze(-1)  # (batch, 1)
+                    tau_log_pik = q_curr_mean - v_k_online - config_copy.munchausen_temperature * torch.logsumexp(
+                        (q_curr_mean - v_k_online) / config_copy.munchausen_temperature, dim=1, keepdim=True
+                    )  # (batch_size, n_actions)
+                    assert tau_log_pik.shape == (self.batch_size, self.online_network.n_actions), "wanted shape {}, shape instead is {}".format((self.batch_size, self.online_network.n_actions), tau_log_pik.shape)
+                    # stats(tau_log_pik, "tau_log_pi_curr")
+
+                    munchausen_addon = tau_log_pik.gather(1, original_actions.unsqueeze(-1)) # (batch_size, 1)
+                    munchausen_addon_clamped = munchausen_addon.clamp(min=config_copy.munchausen_clip, max=0.0)
+
+                    # rewards_orig = rewards.squeeze(-1).to(dtype=torch.float32)  # (batch_size * iqn_n,)
+                    # rewards_orig = rewards_orig.reshape(self.batch_size, self.iqn_n).mean(dim=1).unsqueeze(-1) # (batch_size, 1)
+                    # stats(rewards, "rewards")
+                    # stats(munchausen_addon_clamped, "munchausen_addon_clamped")
+                    rewards_orig = rewards_orig.unsqueeze(-1)
+                    # stats(rewards_orig, "rewards_orig")
+
+                    munchausen_reward_scalar = rewards_orig + (config_copy.munchausen_alpha * munchausen_addon_clamped) # (batch_size, 1)
+                    munchausen_reward = munchausen_reward_scalar.unsqueeze(1).repeat(1, self.iqn_n, 1) # (batch_size, iqn_n, 1)
+                    # stats(munchausen_reward_scalar, "munchausen_reward_scalar")
+                    # stats(q_target.reshape(self.batch_size, self.iqn_n), "q_target (per-quantile, flattened)")
+                    # print("")
                 
-                q_current_online, tau = self.online_network(state_img_tensor, state_float_tensor, self.iqn_n, tau=None) # (batch_size * iqn_n, n_actions)
-                
-                q_curr_mean = q_current_online.reshape(self.iqn_n, self.batch_size, self.online_network.n_actions).mean(dim=0) # q_current_online_detached.mean(dim=1) # (batch_size, n_actions)
-                stats(q_curr_mean, "q_curr_mean")
-                v_k_online = q_curr_mean.max(dim=1)[0].unsqueeze(-1)  # (batch, 1)
-                tau_log_pik = q_curr_mean - v_k_online - config_copy.munchausen_temperature * torch.logsumexp(
-                    (q_curr_mean - v_k_online) / config_copy.munchausen_temperature, dim=1, keepdim=True
-                )  # (batch_size, n_actions)
-                assert tau_log_pik.shape == (self.batch_size, self.online_network.n_actions), "wanted shape {}, shape instead is {}".format((self.batch_size, self.online_network.n_actions), tau_log_pik.shape)
-                stats(tau_log_pik, "tau_log_pi_curr")
-
-                munchausen_addon = tau_log_pik.gather(1, original_actions.unsqueeze(-1)) # (batch_size, 1)
-                munchausen_addon_clamped = munchausen_addon.clamp(min=config_copy.munchausen_clip, max=0.0)
-
-                # rewards_orig = rewards.squeeze(-1).to(dtype=torch.float32)  # (batch_size * iqn_n,)
-                # rewards_orig = rewards_orig.reshape(self.batch_size, self.iqn_n).mean(dim=1).unsqueeze(-1) # (batch_size, 1)
-                stats(rewards, "rewards")
-                stats(munchausen_addon_clamped, "munchausen_addon_clamped")
-                rewards_orig = rewards_orig.unsqueeze(-1)
-                stats(rewards_orig, "rewards_orig")
-
-                munchausen_reward_scalar = rewards_orig + (config_copy.munchausen_alpha * munchausen_addon_clamped) # (batch_size, 1)
-                munchausen_reward = munchausen_reward_scalar.unsqueeze(1).repeat(1, self.iqn_n, 1) # (batch_size, iqn_n, 1)
-                stats(munchausen_reward_scalar, "munchausen_reward_scalar")
-                stats(q_target.reshape(self.batch_size, self.iqn_n), "q_target (per-quantile, flattened)")
-                print("")
-                with torch.no_grad():
-                    outputs_target_tau2 = ((munchausen_reward.reshape(self.batch_size * self.iqn_n, 1) + q_target.reshape(self.batch_size * self.iqn_n, 1))
-                                            .reshape(self.iqn_n, self.batch_size, 1)
-                                            .transpose(0, 1)) # (batch_size, iqn_n, 1)
+                    outputs_target_tau2 = munchausen_reward + q_target
 
             else:
                 with torch.no_grad():
@@ -438,13 +438,26 @@ class Trainer:
                         #
                         #   Build IQN target on tau2 quantiles
                         #
-                        outputs_target_tau2 = rewards + gammas_terminal * q__stpo__target__quantiles_tau2.gather(
+                        q_target_gathered = q__stpo__target__quantiles_tau2.gather(
                             1, a__tpo__online__reduced_repeated
                         )  # (batch_size*iqn_n, 1)
+                        if config_copy.use_MINTO:
+                            # Compute the target using the MINimum of the Target and Online network
+                            q_online_gathered = q__stpo__online__quantiles_tau2.gather(
+                                1, a__tpo__online__reduced_repeated
+                            )
+                            q_bootstrap = torch.min(q_target_gathered, q_online_gathered)
+                        else:
+                            q_bootstrap = q_target_gathered
+                        outputs_target_tau2 = rewards + gammas_terminal * q_bootstrap
                     else: # bootstrap using q values
-                        outputs_target_tau2 = (
-                            rewards + gammas_terminal * q__stpo__target__quantiles_tau2.max(dim=1, keepdim=True)[0]
-                        )  # (batch_size*iqn_n, 1)
+                        q_target_max = q__stpo__target__quantiles_tau2.max(dim=1, keepdim=True)[0]  # (batch_size*iqn_n, 1)
+                        if config_copy.use_MINTO:
+                            q_online_max = q__stpo__online__quantiles_tau2.max(dim=1, keepdim=True)[0]
+                            q_bootstrap = torch.min(q_target_max, q_online_max)
+                        else:
+                            q_bootstrap = q_target_max
+                        outputs_target_tau2 = rewards + gammas_terminal * q_bootstrap
 
                     #
                     #   This is our target
@@ -507,8 +520,10 @@ class Trainer:
                 grad_norm = 0
 
             total_loss = total_loss.detach().cpu()
-            if config_copy.prio_alpha > 0:
-                mask_update_priority = torch.lt(state_float_tensor[:, 0], config_copy.min_horizon_to_update_priority_actions).detach().cpu()
+            """if config_copy.prio_alpha > 0:
+                mask_update_priority = torch.lt(
+                    state_float_tensor[:, 0], config_copy.min_horizon_to_update_priority_actions
+                ).detach().cpu()
                 # Only update the transition priority if the transition was sampled with a sufficiently long-term horizon.
                 buffer.update_priority(
                     batch_info["index"][mask_update_priority],
@@ -517,6 +532,35 @@ class Trainer:
                     .detach()
                     .cpu()
                     .type(torch.float64),
+                )"""
+
+            if config_copy.prio_alpha > 0:
+                mask_update_priority = torch.lt(
+                    state_float_tensor[:, 0], config_copy.min_horizon_to_update_priority_actions
+                ).detach().cpu()
+
+                td_error = (
+                    (outputs_tau3.mean(axis=1) - outputs_target_tau2.mean(axis=1))
+                    .abs()[mask_update_priority]
+                    .detach().cpu().type(torch.float64)
+                )
+
+                # U_i = std of quantile returns from online network (epistemic uncertainty)
+                # outputs_tau3 shape: (batch_size, iqn_n, 1)
+                uncertainty = (
+                    outputs_tau3.squeeze(-1).std(dim=1)[mask_update_priority]
+                    .detach().cpu().type(torch.float64)
+                )
+
+                # Use uncertainty to avoid noisy transitions dominating priorities
+                uper_priority = (
+                    (td_error + config_copy.prio_epsilon) ** config_copy.prio_alpha
+                    + config_copy.prio_uper_lam * uncertainty
+                )
+
+                buffer.update_priority(
+                    batch_info["index"][mask_update_priority],
+                    uper_priority,
                 )
         return total_loss, grad_norm
 

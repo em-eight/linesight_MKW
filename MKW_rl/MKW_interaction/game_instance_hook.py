@@ -9,6 +9,7 @@ import sys
 import time
 import socket
 import pickle
+import pynoko
 
 source_directory = os.getcwd()
 sys.path.append(source_directory)
@@ -251,13 +252,15 @@ class GameInstanceHook():
         fails = 0
         while not success:
             try:
-                self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.listener.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                self.listener.bind((HOST, self.port))
-                self.listener.listen(1)
-                self.conn, _ = self.listener.accept()
+                listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                listener.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                listener.bind((HOST, self.port))
+                listener.listen(1)
+                self.conn, _ = listener.accept()
+                self.listener = listener
                 success = True
             except Exception as e:
+                listener.close()
                 print(e)
                 fails += 1
                 if fails > 10:
@@ -266,6 +269,7 @@ class GameInstanceHook():
         print("Connection accepted")
 
     def close(self):
+        self.conn.close()
         self.listener.close()
 
 """

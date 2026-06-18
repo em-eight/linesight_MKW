@@ -155,4 +155,4 @@ if __name__ == "__main__":
     )  # Turn main process into learner process instead of starting a new one, this saves 1 CUDA context
 
     for collector_process in collector_processes:
-        collector_process.join() # combine processes for learning and/or completion?
+        collector_process.join() # combine processes for ending the run/closing the program

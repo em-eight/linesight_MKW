@@ -11,6 +11,8 @@ import pickle
 
 from MKW_rl.MKW_interaction.MKW_data_translate import *
 from MKW_rl import map_loader
+if config_copy.use_pynoko:
+    import pynoko
 
 import cv2
 import numba
@@ -79,6 +81,8 @@ class GameManager:
         self.game_spawning_lock = game_spawning_lock
         self.game_activated = False
         self.process_number = process_number
+        self.pynoko_system = None
+        self.pynoko_race_completion_max = 0
 
     def register(self, timeout=None):
         # https://stackoverflow.com/questions/6920858/interprocess-communication-in-python
@@ -104,6 +108,9 @@ class GameManager:
 
     # Launch program and return pids
     def launch_game(self):
+        if config_copy.use_pynoko:
+            self.pynoko_launch_game()
+            return
         # See Dolphin Command Line Usage for more information (https://github.com/dolphin-emu/dolphin) (https://wiki.dolphin-emu.org/index.php?title=GameINI)
         self.dolphin_process_id = None
         dolphin_process_number = ""
@@ -153,6 +160,8 @@ class GameManager:
             time.sleep(0)
 
     def is_game_running(self):
+        if config_copy.use_pynoko:
+            return self.pynoko_system is not None
         return (self.dolphin_process_id is not None) and (self.dolphin_process_id in (p.pid for p in psutil.process_iter()))
 
     def is_dolphin_process(self, process: psutil.Process) -> bool:
@@ -166,6 +175,9 @@ class GameManager:
         return [process.pid for process in psutil.process_iter() if self.is_dolphin_process(process)]
 
     def close_game(self):
+        if config_copy.use_pynoko:
+            self.pynoko_close_game()
+            return
         self.timeout_has_been_set = False
         self.game_activated = False
         assert self.dolphin_process_id is not None
@@ -201,7 +213,126 @@ class GameManager:
             self.max_allowable_distance_to_real_checkpoint,
         ) = map_loader.sync_virtual_and_real_checkpoints(zone_centers, savestate_path)"""
 
-    def rollout(self, exploration_policy: Callable, savestate_path: str, zone_centers: npt.NDArray, update_network: Callable, last_loop_finished: bool):
+    def pynoko_launch_game(self):
+        self.pynoko_system = pynoko.KHostSystem()
+        # Activate a dummy time trial to call init()
+        self.pynoko_system.configureTimeTrial(pynoko.Course.GCN_Mario_Circuit, pynoko.Character.Funky_Kong, pynoko.Vehicle.Flame_Runner, False)
+        self.pynoko_system.init() # initialization so all rollout restarts can use .reset
+        self.last_game_reboot = time.perf_counter()
+        self.latest_map_path_requested = -1
+        self.msgtype_response_to_wakeup_TMI = None
+        print("pynoko initialized")
+
+    def pynoko_close_game(self):
+        self.pynoko_system = None
+        self.timeout_has_been_set = False
+        self.game_activated = False
+
+    # TODO: move to MKW_data_translate
+    def pynoko_read_game_data(self, frame_count):
+        proxy = self.pynoko_system.kartObjectProxy()
+        rm = self.pynoko_system.raceManager()
+        player = rm.player()
+        status = proxy.status()
+        move = proxy.move()
+
+        pos = proxy.pos().to_numpy().tolist()
+        rot = proxy.full_rot().to_numpy().tolist()
+        ext_vel = proxy.ext_vel().to_numpy().tolist()
+        int_vel = proxy.int_vel().to_numpy().tolist()
+
+        race_timer = player.raceTimer()
+        race_time_s = (frame_count - 240 if frame_count > 240 else 0) / 60
+        # print(race_time_s)
+
+        mt_charge = move.mtCharge()
+        # DriftState: NotDrifting / ChargingMt / ChargedMt / ChargedSmt
+        drift_state_name = move.driftState().name
+
+        inv = self.pynoko_system.itemDirector().itemInventory(0)
+        race_completion = player.raceCompletion()
+        self.pynoko_race_completion_max = max(self.pynoko_race_completion_max, race_completion)
+
+        respawn = proxy.is_in_respawn() or status.onBit(pynoko.Status.InRespawn)
+        in_trick = status.onBit(pynoko.Status.InATrick)
+        trickable = status.onBit(pynoko.Status.Trickable)
+        wheelie = proxy.is_bike() and status.onBit(pynoko.Status.Wheelie)
+
+        return {
+            "boost_data": {
+                "mt_charge": mt_charge,
+                "mt_charge_full": 1 if mt_charge >= 270 else 0,
+                "smt_charge": 0,
+                "smt_charge_full": 0,
+                "ssmt_charge": 0,
+                "ssmt_charge_full": 0,
+                "mt_boost": 1 if status.onBit(pynoko.Status.Boost) else 0,
+                "trick_boost": 1 if status.onBit(pynoko.Status.ZipperBoost) else 0,
+                "shroom_boost": 1 if status.onBit(pynoko.Status.MushroomBoost) else 0,
+            },
+            "kart_data": {
+                "character": 0,
+                "vehicle": 0,
+                "position": pos,
+                "rotation": rot,
+                "speed": proxy.speed(),
+                "external_velocity": ext_vel,
+                "internal_velocity": int_vel,
+                "moving_road_velocity": [0.0, 0.0, 0.0],
+                "moving_water_velocity": [0.0, 0.0, 0.0],
+                "wheelie_cooldown": 1 if wheelie else 0,
+                "trick_cooldown": 1 if in_trick else 0,
+                "respawn_timer": 1 if respawn else 0,
+                "time_in_respawn": 1 if respawn else 0,
+            },
+            "race_data": {
+                "lap_completion": race_completion % 1.0,
+                "race_completion": race_completion,
+                "race_completion_max": self.pynoko_race_completion_max,
+                "checkpoint_id": player.checkpointId(),
+                "current_key_checkpoint": 0,
+                "max_key_checkpoint": 0,
+                "driving_direction": 0,
+                "item_count": inv.currentCount(),
+                "race_time": race_time_s,
+                "state": 2,
+            },
+            "start_boost_charge": 0.0,
+            "start_boost_full": 0,
+            "trickable_timer": 1 if trickable else 0,
+            "surface_properties": [
+                1 if status.onBit(pynoko.Status.WallCollision) else 0,
+                0,  # is_solid_oob (not bound)
+                1 if status.onBit(pynoko.Status.RampBoost) else 0,
+                1 if status.onBit(pynoko.Status.CollidingOffroad) else 0,
+                0,  # is_boost_panel_or_ramp (not bound)
+                1 if status.onBit(pynoko.Status.Trickable) else 0,
+            ],
+            "airtime": 0 if status.onBit(pynoko.Status.TouchingGround) else 1,
+        }
+
+    def pynoko_translate_action(self, computed_action: dict):
+        """Convert GCInputs dict to pynoko setInput arguments."""
+        btn_list = []
+        if computed_action.get("A", 0):
+            btn_list.append(pynoko.KPAD_BUTTON_A)
+        if computed_action.get("TriggerRight", 0):
+            # TriggerRight (GC R-trigger) = drift -> maps to KPAD_BUTTON_B (Wiimote B = drift)
+            btn_list.append(pynoko.KPAD_BUTTON_B)
+        if computed_action.get("TriggerLeft", 0):
+            btn_list.append(pynoko.KPAD_BUTTON_ITEM)
+        buttons = pynoko.buttonInput(btn_list)
+        stickX_raw = int(round(7 + computed_action.get("StickX", 0) * 7))
+        stickY_raw = int(round(7 + computed_action.get("StickY", 0) * 7))
+        trick = pynoko.Trick.Up if computed_action.get("Up", 0) else pynoko.Trick.NoTrick
+        return buttons, stickX_raw, stickY_raw, trick
+    
+    def pynoko_skip_intro(self, inputs):
+        while self.pynoko_system.raceManager().stage() == pynoko.RaceManager.Stage.Intro:
+            self.pynoko_system.setInput(inputs[0], inputs[1], inputs[2], inputs[3])
+            self.pynoko_system.calc()
+
+    def rollout(self, exploration_policy: Callable, savestate_path, zone_centers: npt.NDArray, update_network: Callable, last_loop_finished: bool):
         """
         exploration_policy: Function that returns ratio of exploration vs exploitation runs
         savestate_path: file path to current track to run
@@ -245,7 +376,7 @@ class GameManager:
             "furthest_zone_idx": 0, # based off map.npy file
         }
 
-        if (self.sock is None) or (not self.registered): # Game was not connected to the program
+        if ((self.sock is None) or (not self.registered)) and not config_copy.use_pynoko: # Game was not connected to the program
             assert self.msgtype_response_to_wakeup_TMI is None
             print("Initialize connection to Dolphin from game_manager using port number", (self.tmi_port))
             # self.iface = TMInterface(self.tmi_port) # reset the interface
@@ -276,6 +407,8 @@ class GameManager:
 
         # Insert values for the start of a race
         computed_action = {}
+        if config_copy.use_pynoko:
+            inputs = self.pynoko_translate_action(computed_action)
         this_rollout_is_finished = False
         n_th_action_we_compute = 0
 
@@ -292,58 +425,108 @@ class GameManager:
         if (self.latest_map_path_requested != savestate_path or last_loop_finished) or not config_copy.use_race_restart:
             # We have to load the savestate we want
             # print("Loading savestate")
-            self.sock.sendall(pickle.dumps([False, False, computed_action, savestate_path]))
-            self.sock.recv(128) # wait for dolphin to load the state before requesting actions
-            self.latest_map_path_requested = savestate_path # this seems backwards... TODO
+            if config_copy.use_pynoko:
+                # TODO: rework savestatepath to give vehicle, character, and track combo instead of str
+                self.pynoko_system.configureTimeTrial(savestate_path[0], savestate_path[1], savestate_path[2], False)
+                self.pynoko_system.reset()
+                self.pynoko_skip_intro(inputs)
+                self.latest_map_path_requested = savestate_path
+            else:
+                self.sock.sendall(pickle.dumps([False, False, computed_action, savestate_path]))
+                self.sock.recv(128) # wait for dolphin to load the state before requesting actions
+                self.latest_map_path_requested = savestate_path # this seems backwards... TODO
         else: # map hasn't changed
             # Send signal to restart race manually instead of reloading savestate to save overhead
             # Note that this doesn't actually save any time as loading a savestate is generally just as fast
             # print("Restarting manually")
-            self.sock.sendall(pickle.dumps([False, False, computed_action, config_copy.restart_race_command]))
-            self.sock.recv(128) # wait for dolphin to load the state before requesting actions
+            if config_copy.use_pynoko:
+                # TODO: rework savestatepath to give vehicle, character, and track combo instead of str
+                self.pynoko_system.configureTimeTrial(savestate_path[0], savestate_path[1], savestate_path[2], False)
+                self.pynoko_system.reset()
+                self.pynoko_skip_intro(inputs)
+            else:
+                self.sock.sendall(pickle.dumps([False, False, computed_action, config_copy.restart_race_command]))
+                self.sock.recv(128) # wait for dolphin to load the state before requesting actions
+
+        self.pynoko_race_completion_max = 0
 
         disable_rewards = False
         while not this_rollout_is_finished:
             """
-            This loop needs to perform these essential functions:
+            This loop performs these essential functions:
             1. Load race savestate (enforce mini-races and race finishes)
             2. Read game state (floats and frame)
             3. Send data to exploration policy
             4. Send inputs received from exploration policy to the game
             5. update the network
+
+            The flow of the loop consists of these steps:
+            1. Ensure correct savestate is loaded
+            2. Skip frame if needed
+            3. Send current requested action
+            4. Receive new game state after action
+            5. Disable rewards if currently in a respawn
+            6. Update maximum zone reached
+            7. Convert game data to 1d list
+            8. Send frame and game data to the exploration_policy to get next action
+            9. Set new requested action
+            10. Update the network
+            11. Save rollout results, end race results, or both depending on finish state.
             """
-            frames_processed += 1
 
             if self.latest_map_path_requested != savestate_path:
                 # We have to load the savestate we want
                 print("loading savestate")
-                self.sock.sendall(pickle.dumps([False, False, computed_action, savestate_path]))
-                self.sock.recv(128) # wait for dolphin to load the state before requesting actions
-                self.latest_map_path_requested = savestate_path # this seems backwards... TODO
-                continue
+                if config_copy.use_pynoko:
+                    self.pynoko_system.configureTimeTrial(savestate_path[0], savestate_path[1], savestate_path[2], False)
+                    self.pynoko_system.reset()
+                    self.pynoko_skip_intro(inputs)
+                    self.latest_map_path_requested = savestate_path
+                    self.pynoko_race_completion_max = 0
+                    frames_processed = 0
+                else:
+                    self.sock.sendall(pickle.dumps([False, False, computed_action, savestate_path]))
+                    self.sock.recv(128) # wait for dolphin to load the state before requesting actions
+                    self.latest_map_path_requested = savestate_path # this seems backwards... TODO
+                    frames_processed = 0
+                    continue
+
+            frames_processed += 1
             if (frames_processed % self.run_steps_per_action != 0):
-                self.sock.sendall(pickle.dumps([False, False, computed_action, ""]))
-                self.sock.recv(128)
+                if not config_copy.use_pynoko:
+                    self.sock.sendall(pickle.dumps([False, False, computed_action, ""]))
+                    self.sock.recv(128)
+                else:
+                    self.pynoko_system.setInput(inputs[0], inputs[1], inputs[2], inputs[3])
+                    self.pynoko_system.calc()
                 continue
+
             pc2 = time.perf_counter_ns()
             instrumentation__between_run_steps += pc2 - pc
 
             pc3 = time.perf_counter_ns()
-            self.sock.sendall(pickle.dumps([True, True, computed_action, ""]))
-            
-            raw_frame_data = bytearray()
-            data_length = FRAME_WIDTH * FRAME_HEIGHT * 3
-            while len(raw_frame_data) < data_length:
-                try:
-                    packet = self.sock.recv(data_length - len(raw_frame_data))
-                except Exception as e:
-                    print("Error receiving frame data:", e)
-                if not packet:
-                    print("Error receiving frame data")
-                    break
-                raw_frame_data.extend(packet)
-            frame_data = np.frombuffer(raw_frame_data, dtype = np.uint8).reshape((FRAME_HEIGHT, FRAME_WIDTH, 3))
-            self.sock.sendall("frame_read".encode()) # maintain baton-passing
+            # send requested action
+            if config_copy.use_pynoko:
+                self.pynoko_system.setInput(inputs[0], inputs[1], inputs[2], inputs[3])
+                self.pynoko_system.calc()
+                # frame_data = self.pynoko_system.getFrame()[:FRAME_HEIGHT, :FRAME_WIDTH, 2::-1]
+                frame_data = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
+            else:
+                self.sock.sendall(pickle.dumps([True, True, computed_action, ""]))
+                
+                raw_frame_data = bytearray()
+                data_length = FRAME_WIDTH * FRAME_HEIGHT * 3
+                while len(raw_frame_data) < data_length:
+                    try:
+                        packet = self.sock.recv(data_length - len(raw_frame_data))
+                    except Exception as e:
+                        print("Error receiving frame data:", e)
+                    if not packet:
+                        print("Error receiving frame data")
+                        break
+                    raw_frame_data.extend(packet)
+                frame_data = np.frombuffer(raw_frame_data, dtype = np.uint8).reshape((FRAME_HEIGHT, FRAME_WIDTH, 3))
+                self.sock.sendall("frame_read".encode()) # maintain baton-passing
             pc4 = time.perf_counter_ns()
             instrumentation__grab_frame += pc4 - pc3
             # https://stackoverflow.com/questions/48121916/numpy-resize-rescale-image
@@ -355,7 +538,10 @@ class GameManager:
             # frame is a numpy array of shape (1, H, W) and dtype np.uint8
             pc5 = time.perf_counter_ns()
             instrumentation__convert_frame += pc5 - pc4
-            game_data = pickle.loads(self.sock.recv(65535))
+            if config_copy.use_pynoko:
+                game_data = self.pynoko_read_game_data(frames_processed)
+            else:
+                game_data = pickle.loads(self.sock.recv(65535))
             if game_data["race_data"]["state"] == 0:
                 # Race has not started, so skip frames until we enter countdown
                 print("ERROR: Attempted to process intro camera state during rollout")
@@ -367,7 +553,7 @@ class GameManager:
             race_time = max([game_data["race_data"]["race_time"], 1e-12]) # Epsilon trick to avoid division by zero
 
             if game_data["kart_data"]["respawn_timer"] > 0 or game_data["kart_data"]["time_in_respawn"] > 0:
-                # Do not update current zone once a respawn occurs (disabling reward system)
+                # Do not update current zone once a respawn occurs (disabling progress reward)
                 disable_rewards = True
             elif not disable_rewards:
                 current_zone_idx = update_current_zone_idx(
@@ -422,6 +608,8 @@ class GameManager:
                 if game_data["race_data"]["item_count"] <= math.floor(-(game_data["race_data"]["race_completion_max"] - config_copy.Mushroom_point)):
                     computed_action["TriggerLeft"] = 0 # Disable item button if mushroom usage is bad
                     # print("Prevented item:", manual_item_count, "While max is:", math.floor(-(game_data["race_data"]["race_completion_max"] - 4)))
+            if config_copy.use_pynoko:
+                inputs = self.pynoko_translate_action(computed_action)
 
             # Save the estimated Q-value of the starting state (start of the track)
             if n_th_action_we_compute == 0:
@@ -443,7 +631,7 @@ class GameManager:
             # Failed to finish race in time. Note that race_time is used to prevent resetting during the countdown
             if ((frames_processed > self.max_overall_duration_f or frames_processed > last_progress_improvement_f + self.max_minirace_duration_f) 
                 and not this_rollout_is_finished and race_time > 2.5):
-                #print("Failed at:", current_zone_idx, "Max completion:", rollout_results["furthest_zone_idx"])
+                # print("Failed at:", current_zone_idx, "Max completion:", rollout_results["furthest_zone_idx"], "Race completion:", rollout_results["race_completion"][-20:])
                 
                 end_race_stats["race_finished"] = False
                 end_race_stats["race_time_for_ratio"] = race_time_for_ratio

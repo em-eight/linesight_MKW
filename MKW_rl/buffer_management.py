@@ -73,7 +73,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
     )  # Discount factor that will be placed in front of next_step in Bellman equation, depending on n_steps chosen
 
     reward_into = np.zeros(n_frames)
-    # reward_into_constant = np.zeros(n_frames)
+    reward_into_constant = np.zeros(n_frames)
     reward_into_progress = np.zeros(n_frames)
     reward_into_ev = np.zeros(n_frames)
     for i in range(1, n_frames): # run for each frame of the rollout
@@ -84,7 +84,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
         )"""
         if type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 2: # Apply these rewards during the race (Not race finished, not during countdown timer)
             reward_into[i] += config_copy.constant_reward_per_action
-            # reward_into_constant[i] += config_copy.constant_reward_per_action
+            reward_into_constant[i] += config_copy.constant_reward_per_action
 
             if rollout_results["state_float"][i]["race_data"]["item_count"] < rollout_results["state_float"][i - 1]["race_data"]["item_count"]:
                 # used item punish
@@ -95,10 +95,12 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 # reward_into[i] += config_copy.constant_reward_per_action * config_copy.LC_punish_rate
             if rollout_results["state_float"][i]["kart_data"]["position"][0] > config_copy.LC_punish_line:
                 reward_into[i] += config_copy.constant_reward_per_action * config_copy.illegal_zone_punish_rate
+                # print("Punished area! Added:", config_copy.illegal_zone_punish_rate)
 
             if rollout_results["state_float"][i]["race_data"]["race_completion"] % 1 < config_copy.rMC_drift_bonus_end and rollout_results["state_float"][i]["race_data"]["race_completion"] % 1 > config_copy.rMC_drift_bonus_start:
-                if rollout_results["state_float"][i]["boost_data"]["mt_boost"] > 0:
+                if rollout_results["state_float"][i]["boost_data"]["trick_boost"] > 0:
                     reward_into[i] += config_copy.reward_per_drift_boost_frame
+                    # print("Rewarded drifting! Added:", config_copy.reward_per_drift_boost_frame)
                 
         if i < n_frames - 1: # apply these rewards unless this is the finish frame
             """if config_copy.final_speed_reward_per_f_per_s != 0:
@@ -123,7 +125,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                     and temp_completion_reward > 0):
                     temp_completion_reward = temp_completion_reward * 1 # 0.6 (40% discount for speed increase) divided by 30/90 as we can't confirm source of boost outside that range"""
                 
-                if engineered_close_to_vcp_reward != 0:
+                """if engineered_close_to_vcp_reward != 0:
                     reward_into[i] += np.interp(max(config_copy.engineered_reward_min_dist_to_cur_vcp,
                             min(config_copy.engineered_reward_max_dist_to_cur_vcp, np.linalg.norm(rollout_results["state_float"][i]["relative_zone_centers"][0])),
                         ),
@@ -137,7 +139,7 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 if rollout_results["state_float"][i]["boost_data"]["trick_boost"] > 0:
                     # print("reward before:", reward_into[i])
                     reward_into[i] += (engineered_trick_reward / config_copy.temporal_mini_race_duration_actions) * 0
-                    # print("reward after:", reward_into[i])
+                    # print("reward after:", reward_into[i])"""
 
                 reward_into[i] += temp_completion_reward
                 reward_into_progress[i] += temp_completion_reward
@@ -158,12 +160,13 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                 reward_into[i] += shaped_ev_reward
 
                 reward_into_ev[i] += external_velocity_reward + shaped_ev_reward
+                
             elif type(rollout_results["state_float"][i]) != float and rollout_results["state_float"][i]["race_data"]["state"] == 1: # Only apply these rewards during race countdown
                 # continue using race completion for countdown reward as VCPs are too sparse to encourage moving forward
                 completion_reward = (
                     rollout_results["race_completion"][i] - rollout_results["race_completion"][i - 1]
                 ) * config_copy.reward_per_m_advanced_along_centerline # Based on estimated time to lap completion
-                reward_into[i] += completion_reward * 0
+                reward_into[i] += completion_reward
                 # reward_into_progress[i] += completion_reward
 
             """ if (engineered_start_boost_reward != 0
@@ -175,9 +178,8 @@ def fill_buffer_from_rollout_with_n_steps_rule(
                     reward_into[i] += -engineered_start_boost_reward if rollout_results["state_float"][i]["start_boost_charge"] <= 0.925 else 0 """
 
     print("Rewards for progress:", np.sum(reward_into_progress))
-    # print("Constant reward:", np.sum(reward_into_constant))
+    print("Constant reward:", np.sum(reward_into_constant))
     print("Rewards for EV:", np.sum(reward_into_ev))
-    # print("Total:", np.sum(reward_into))
     print("Seconds run:", n_frames / (config_copy.game_running_fps / config_copy.f_per_action))
     print("Total Rewards:", np.sum(reward_into))
 

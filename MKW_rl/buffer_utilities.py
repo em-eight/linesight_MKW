@@ -191,11 +191,13 @@ class CustomPrioritizedSampler(PrioritizedSampler):
         dtype: torch.dtype = torch.float,
         reduction: str = "max",
         default_priority_ratio: float = 2.0,
+        lam: float = 0.0,
     ) -> None:
         super(CustomPrioritizedSampler, self).__init__(max_capacity, alpha, beta, eps, dtype, reduction)
         self._average_priority = None
         self._default_priority_ratio = default_priority_ratio
         self._uninitialized_memories = 0.0
+        self._lambda = lam
 
     @property
     def default_priority(self) -> float:
@@ -256,7 +258,8 @@ class CustomPrioritizedSampler(PrioritizedSampler):
             priority = _to_numpy(priority)
             # We track the _approximate_ number of memories in the buffer that have default priority :
             self._uninitialized_memories -= 0.3 * len(index)
-        priority = np.power(priority + self._eps, self._alpha)
+        # priority = np.power(priority + self._eps, self._alpha)
+
         self._sum_tree[index] = priority
 
     def state_dict(self) -> Dict[str, Any]:
@@ -299,7 +302,7 @@ def make_buffers(buffer_size: int) -> tuple[ReplayBuffer, ReplayBuffer]:
         collate_fn=buffer_collate_function,
         prefetch=1,
         sampler=CustomPrioritizedSampler(
-            buffer_size, config_copy.prio_alpha, config_copy.prio_beta, config_copy.prio_epsilon, torch.float64
+            buffer_size, config_copy.prio_alpha, config_copy.prio_beta, config_copy.prio_epsilon, torch.float64, lam=config_copy.prio_uper_lam
         )
         if config_copy.prio_alpha > 0
         else RandomSampler(),
@@ -310,7 +313,7 @@ def make_buffers(buffer_size: int) -> tuple[ReplayBuffer, ReplayBuffer]:
         collate_fn=buffer_collate_function,
         prefetch=1,
         sampler=CustomPrioritizedSampler(
-            buffer_size, config_copy.prio_alpha, config_copy.prio_beta, config_copy.prio_epsilon, torch.float64
+            buffer_size, config_copy.prio_alpha, config_copy.prio_beta, config_copy.prio_epsilon, torch.float64, lam=config_copy.prio_uper_lam
         )
         if config_copy.prio_alpha > 0
         else RandomSampler(),
