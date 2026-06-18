@@ -27,7 +27,11 @@ from config_files.user_config import *
 W_downsized = 153
 H_downsized = 114
 
-run_name = "rMC_regular"
+run_name = "rMC_dolphin_flow_test1"
+
+use_pynoko = False
+if use_pynoko:
+    import pynoko # used for data-types
 
 # gpu_collectors_count is the number of Dolphin instances that will be launched in parallel.
 # It is recommended that users adjust this number depending on the performance of their machine.
@@ -68,19 +72,20 @@ iqn_n = 8  # must be an even number because we sample tau symmetrically around 0
 iqn_k = 32  # must be an even number because we sample tau symmetrically around 0.5
 iqn_kappa = 5e-3
 use_ddqn = False
+use_MINTO = False
 
 # TODO: convert to dictionary or list of layers to apply spectral norm to, and whether it is active in those layers
 use_spectral_norm = True
 
-# DOES NOT WORK
 use_munchausen_reward_augmentation = False
-munchausen_alpha = 0.0
-munchausen_temperature = 0.03
-munchausen_clip = -1.0
+munchausen_alpha = 0.9
+munchausen_temperature = 0.05
+munchausen_clip = -0.05
 
-prio_alpha = np.float32(0)  # Rainbow-IQN paper: 0.2, Rainbow paper: 0.5, PER paper 0.6
+prio_alpha = np.float32(0.0)  # Rainbow-IQN paper: 0.2, Rainbow paper: 0.5, PER paper 0.6
 prio_epsilon = np.float32(2e-3)  # Defaults to 10^-6 in stable-baselines
 prio_beta = np.float32(1)
+prio_uper_lam = np.float32(1.0)
 
 # State-action pair processed in action exploration will be discarded after randomly selected this amount of times
 number_times_single_memory_is_used_before_discard = 32  # 32 // 4
@@ -137,11 +142,21 @@ memory_size_schedule = [
 ]
 lr_schedule = [
     (0, 1e-3),
+    (3_000_000 * global_schedule_speed, 2e-4),
+    (12_000_000 * global_schedule_speed, 2e-4),
+    (15_000_000 * global_schedule_speed, 1e-4),
+    (52_000_000, 1e-4),
+    (55_000_000, 5e-5),
+    (100_000_000, 5e-5),
+    (103_000_000, 1e-5),
+]
+"""
+    (0, 1e-3),
     (3_000_000 * global_schedule_speed, 5e-5),
     (12_000_000 * global_schedule_speed, 5e-5),
     (15_000_000 * global_schedule_speed, 1e-5),
-]
-"""    (0, 1e-3),
+
+    (0, 1e-3),
     (3_000_000 * global_schedule_speed, 2e-4),
     (12_000_000 * global_schedule_speed, 2e-4),
     (15_000_000 * global_schedule_speed, 1e-4),
@@ -186,8 +201,8 @@ DC_punish_line_x = -10000
 # Punish AI for entering illegal area (forcing shortcuts/correct mushroom usage)
 illegal_zone_punish_rate = 0
 
-rMC_drift_bonus_start = 0.32
-rMC_drift_bonus_end = 0.45
+rMC_drift_bonus_start = 0.77
+rMC_drift_bonus_end = 0.87
 
 Mushroom_point = 4.24
 # mushroom points for each track (because these are annoying to collect, and will be useful in the future for multi-track training)
@@ -208,7 +223,7 @@ all_mushroom_points = {
     "rWS": 4.36,
 }
 
-game_reboot_interval = 3600 * 7  # Restart dolphin every x seconds
+game_reboot_interval = 3600 * 10  # Restart dolphin every x seconds
 running_speed = 80 # TODO: UNUSED; Remove from GameManager instantiation
 
 # race not completed in time
@@ -275,8 +290,8 @@ expected_vcp_passed_per_s = 20
 # +4 reward over the course of a minirace for driving well (passing VCPs)
 reward_per_vcp_passed = 4 / (expected_vcp_passed_per_s * temporal_mini_race_duration_s)
 
-expected_lap_duration_s = 55 # This value controls the inverse amount of reward given for the start slide
-expected_lap_duration_per_action = expected_lap_duration_s * (game_running_fps / f_per_action) # at 60 fps
+expected_lap_duration_s = 45 # This value controls the inverse amount of reward given for the start slide
+expected_lap_duration_per_action = expected_lap_duration_s * (game_running_fps / f_per_action)
 average_lap_increment_per_action = 1 / expected_lap_duration_per_action
 total_second_increment_expected = 3 / (expected_lap_duration_s * 3 / temporal_mini_race_duration_s)
 
@@ -357,8 +372,6 @@ use_jit = True
 
 threshold_to_save_all_runs_ms = -1 # unused
 
-sync_virtual_and_real_checkpoints = True # likely unused
-
 """ 
 ============================================      MAP CYCLE     =======================================================
 
@@ -433,40 +446,8 @@ map_cycle += [
     # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", False, True), 1),
     # repeat(("rMC3", "__slot__2", "rMC3.npy", True, True), 4), # Using __slot__X for dolphin save slots. Not recommended, as the save state depends on the dolphin save.
     # repeat(("rMC3", "__slot__2", "rMC3.npy", False, True), 1),
-    # repeat(("MG", "linesight_savestates\\MG_F_SS.sav", "MG.npy", True, True), 4),
-    # repeat(("MG", "linesight_savestates\\MG_F_SS.sav", "MG.npy", False, True), 1),
-    # repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", True, True), 4),
-    # repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", False, True), 1),
-    # repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", True, True), 4),
-    # repeat(("rSGB", "linesight_savestates\\rSGB_F_Ph.sav", "rSGB.npy", False, True), 1),
-    # repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", True, True), 4),
-    # repeat(("LC", "linesight_savestates/LC_F_Sp_linux.sav", "LC.npy", False, True), 1),
-    # repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", True, True), 4),
-    # repeat(("rBC", "linesight_savestates/rBC_D_MB.sav", "rBC.npy", False, True), 1),
-    # repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", True, True), 4),
-    # repeat(("rBC", "linesight_savestates/rBC_F_FR.sav", "rBC.npy", False, True), 1),
-    # repeat(("rMC3", "linesight_savestates/rMC3_D_MB_linux.sav", "rMC3.npy", True, True), 4),
-    # repeat(("rMC3", "linesight_savestates/rMC3_D_MB_linux.sav", "rMC3.npy", False, True), 1),
-    # repeat(("rMR", "linesight_savestates/rMR_F_FR.sav", "rMR.npy", True, True), 4),
-    # repeat(("rMR", "linesight_savestates/rMR_F_FR.sav", "rMR.npy", False, True), 1),
-    # repeat(("DC", "linesight_savestates/DC_D_MB.sav", "DC.npy", True, True), 4),
-    # repeat(("DC", "linesight_savestates/DC_D_MB.sav", "DC.npy", False, True), 1),
-    # repeat(("rWS", "linesight_savestates/rWS_F_FR.sav", "rWS.npy", True, True), 4),
-    # repeat(("rWS", "linesight_savestates/rWS_F_FR.sav", "rWS.npy", False, True), 1),
-    # repeat(("MMM", "linesight_savestates/MMM_F_FR.sav", "MMM.npy", True, True), 4),
-    # repeat(("MMM", "linesight_savestates/MMM_F_FR.sav", "MMM.npy", False, True), 1),
-    # repeat(("MC", "linesight_savestates/MC_F_Sp.sav", "MC.npy", True, True), 4),
-    # repeat(("MC", "linesight_savestates/MC_F_Sp.sav", "MC.npy", False, True), 1),
-    # repeat(("flat", "linesight_savestates/Flat_F_SS_hopper.sav", "LC.npy", True, True), 3),
-    # repeat(("flat", "linesight_savestates/Flat_F_SS_hopper.sav", "LC.npy", False, True), 1),
-    # repeat(("LC", "linesight_savestates/LC_F_SS_shroom.sav", "LC.npy", True, True), 3),
-    # repeat(("LC", "linesight_savestates/LC_F_SS_shroom.sav", "LC.npy", False, True), 1),
-    # repeat(("rBP", "linesight_savestates/Baby_F_SS.sav", "LC.npy", True, True), 4),
-    # repeat(("rBP", "linesight_savestates/Baby_F_SS.sav", "LC.npy", False, True), 1),
-    # repeat(("rSGB", "linesight_savestates/SGB_W_Ph_linux.sav", "rSGB.npy", True, True), 4),
-    # repeat(("rSGB", "linesight_savestates/SGB_W_Ph_linux.sav", "rSGB.npy", False, True), 1),
-    # repeat(("rYF", "linesight_savestates/rYF_F_SS_hopper.sav", "rYF.npy", True, True), 4),
-    # repeat(("rYF", "linesight_savestates/rYF_F_SS_hopper.sav", "rYF.npy", False, True), 1),
     repeat(("rMC", "linesight_savestates/rMC_F_FR_linux.sav", "rMC.npy", True, True), 4),
     repeat(("rMC", "linesight_savestates/rMC_F_FR_linux.sav", "rMC.npy", False, True), 1),
+    # repeat(("rMC", [pynoko.Course.GCN_Mario_Circuit, pynoko.Character.Funky_Kong, pynoko.Vehicle.Flame_Runner], "rMC.npy", True, True), 4),
+    # repeat(("rMC", [pynoko.Course.GCN_Mario_Circuit, pynoko.Character.Funky_Kong, pynoko.Vehicle.Flame_Runner], "rMC.npy", False, True), 1),
 ]

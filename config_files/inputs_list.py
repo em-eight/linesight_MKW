@@ -150,10 +150,10 @@ inputs = [
         "StickY": 1,
         "TriggerLeft": 0,
     },
-    {  # 6 Drift full right item # Adjust for individual tracks based on item usage
-        "StickX": 1,
+    {  # 6 straight item # Adjust for individual tracks based on item usage
+        "StickX": 0,
         "A": True,
-        "TriggerRight": 1,
+        "TriggerRight": 0,
         "TriggerLeft": 1,
         "B": False,
         "Up": False,
@@ -222,13 +222,23 @@ inputs = [
         "TriggerLeft": 0,
         "TriggerRight": 0
     },
+    {  # 14 Drift trick full right
+        "Up": True,
+        "A": True,
+        "B": False,
+        "StickX": 1,
+        "StickY": 0,
+        "TriggerLeft": 0,
+        "TriggerRight": 1
+    },
 ]
 
 action_forward_idx = 0  # Accelerate forward, don't turn
 action_backward_idx = 12  # Don't move, turn right
 
+# indexes used for saving actions taken by the agent to theoretically contruct the ghost file from scratch (not an easy feat)
 action_item_index = 6 # Use the item
-action_item_denied_index = 2 # Replacement index for illegal mushroom usage
+action_item_denied_index = 0 # Replacement index for illegal mushroom usage
 
 """
 {  # 0 Forward
