@@ -21,8 +21,8 @@ import numpy.typing as npt
 import psutil
 
 HOST = "127.0.0.1"
-FRAME_WIDTH = 611
-FRAME_HEIGHT = 456
+FRAME_WIDTH = 400
+FRAME_HEIGHT = 600
 
 # @numba.njit
 def update_current_zone_idx(
@@ -509,8 +509,7 @@ class GameManager:
             if config_copy.use_pynoko:
                 self.pynoko_system.setInput(inputs[0], inputs[1], inputs[2], inputs[3])
                 self.pynoko_system.calc()
-                # frame_data = self.pynoko_system.getFrame()[:FRAME_HEIGHT, :FRAME_WIDTH, 2::-1]
-                frame_data = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
+                frame_data = self.pynoko_system.getFrame()[::2, ::2, 2::-1]
             else:
                 self.sock.sendall(pickle.dumps([True, True, computed_action, ""]))
                 

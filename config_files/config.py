@@ -18,18 +18,17 @@ This setup provides the possibility to:
 2) Continue to code, use git, and modify config.py without impacting an ongoing run.
 
 """
-from itertools import repeat
 import numpy as np
 
 from config_files.inputs_list import *
 from config_files.user_config import *
 
-W_downsized = 153
-H_downsized = 114
+W_downsized = 150
+H_downsized = 100
 
-run_name = "rMC_dolphin_flow_test1"
+run_name = "rMC_dolphin_flow_test2"
 
-use_pynoko = False
+use_pynoko = True
 if use_pynoko:
     import pynoko # used for data-types
 
@@ -44,8 +43,8 @@ gpu_collectors_count = 4
 global_schedule_speed = 1.5
 n_steps = 3
 
-f_per_action = 2
-game_running_fps = 30
+f_per_action = 4
+game_running_fps = 60
 use_miniraces = True
 
 """
@@ -65,7 +64,7 @@ n_prev_drift_actions_in_inputs = 10
 float_input_dim = 56 + 7 * n_prev_actions_in_inputs + n_prev_drift_actions_in_inputs + 3 * n_zone_centers_in_inputs
 
 float_hidden_dim = 256
-conv_head_output_dim = 5280
+conv_head_output_dim = 4320
 dense_hidden_dimension = 512
 iqn_embedding_dimension = 64
 iqn_n = 8  # must be an even number because we sample tau symmetrically around 0.5
@@ -394,8 +393,8 @@ The example below defines a simple cycle where the agent alternates between four
 evaluation run on the same map.
 
 map_cycle = [
-    repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", True, True), 4),
-    repeat(("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", False, True), 1),
+    [("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", True, True)] * 4,
+    [("LC", "linesight_savestates\\LC_F_Sp.sav", "LC.npy", False, True)] * 1,
 ]
 """
 
@@ -435,19 +434,19 @@ nadeo_maps_to_train_and_test = [
 map_cycle = []
 # for map_name in nadeo_maps_to_train_and_test:
 #   short_map_name = map_name[0:3]
-#   map_cycle.append(repeat((short_map_name, f'"Official Maps\{map_name}.Challenge.Gbx"', f"{map_name}_0.5m_cl2.npy", True, True), 4))
-#   map_cycle.append(repeat((short_map_name, f'"Official Maps\{map_name}.Challenge.Gbx"', f"{map_name}_0.5m_cl2.npy", False, True), 1))
+#   map_cycle.append([(short_map_name, f'"Official Maps\{map_name}.Challenge.Gbx"', f"{map_name}_0.5m_cl2.npy", True, True)] * 4)
+#   map_cycle.append([(short_map_name, f'"Official Maps\{map_name}.Challenge.Gbx"', f"{map_name}_0.5m_cl2.npy", False, True)] * 1)
 
 
 map_cycle += [
-    # repeat(("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", True, True), 4),
-    # repeat(("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", False, True), 1),
-    # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", True, True), 4),
-    # repeat(("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", False, True), 1),
-    # repeat(("rMC3", "__slot__2", "rMC3.npy", True, True), 4), # Using __slot__X for dolphin save slots. Not recommended, as the save state depends on the dolphin save.
-    # repeat(("rMC3", "__slot__2", "rMC3.npy", False, True), 1),
-    repeat(("rMC", "linesight_savestates/rMC_F_FR_linux.sav", "rMC.npy", True, True), 4),
-    repeat(("rMC", "linesight_savestates/rMC_F_FR_linux.sav", "rMC.npy", False, True), 1),
-    # repeat(("rMC", [pynoko.Course.GCN_Mario_Circuit, pynoko.Character.Funky_Kong, pynoko.Vehicle.Flame_Runner], "rMC.npy", True, True), 4),
-    # repeat(("rMC", [pynoko.Course.GCN_Mario_Circuit, pynoko.Character.Funky_Kong, pynoko.Vehicle.Flame_Runner], "rMC.npy", False, True), 1),
+    # [("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", True, True)] * 4,
+    # [("rGV2", "linesight_savestates/rGV2_F_FR_linux.sav", "rGV2.npy", False, True)] * 1,
+    # [("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", True, True)] * 4,
+    # [("rMC3", "linesight_savestates\\rMC3_D_MB.sav", "rMC3.npy", False, True)] * 1,
+    # [("rMC3", "__slot__2", "rMC3.npy", True, True)] * 4, # Using __slot__X for dolphin save slots. Not recommended, as the save state depends on the dolphin save.
+    # [("rMC3", "__slot__2", "rMC3.npy", False, True)] * 1,
+    # [("rMC", "linesight_savestates/rMC_F_FR_linux.sav", "rMC.npy", True, True)] * 4,
+    # [("rMC", "linesight_savestates/rMC_F_FR_linux.sav", "rMC.npy", False, True)] * 1,
+    [("rMC", [pynoko.Course.GCN_Mario_Circuit, pynoko.Character.Funky_Kong, pynoko.Vehicle.Flame_Runner], "rMC.npy", True, True)] * 4,
+    [("rMC", [pynoko.Course.GCN_Mario_Circuit, pynoko.Character.Funky_Kong, pynoko.Vehicle.Flame_Runner], "rMC.npy", False, True)] * 1,
 ]
